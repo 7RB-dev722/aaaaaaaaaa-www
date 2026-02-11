@@ -1,0 +1,110 @@
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import Header from './components/Header';
+import Hero from './components/Hero';
+import { ProductsGrid } from './components/ProductsGrid';
+import Footer from './components/Footer';
+import AdminPanel from './components/AdminPanel';
+import { AnimatedBackground } from './components/AnimatedBackground';
+import WinningPhotosPage from './components/WinningPhotosPage';
+import { testSupabaseConnection } from './lib/supabase';
+import { SettingsProvider } from './contexts/SettingsContext';
+
+function HomePage() {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState<'checking' | 'connected' | 'disconnected'>('checking');
+
+  useEffect(() => {
+    checkConnectionAndLoadData();
+  }, []);
+
+  const checkConnectionAndLoadData = async () => {
+    try {
+      setLoading(true);
+      setConnectionStatus('checking');
+      
+      const isConnected = await testSupabaseConnection();
+      setConnectionStatus(isConnected ? 'connected' : 'disconnected');
+      
+      if (!isConnected) {
+        setError('Failed to connect to the database. Loading local fallback data.');
+      }
+    } catch (err) {
+      console.error('Connection check failed:', err);
+      setConnectionStatus('disconnected');
+      setError('Failed to connect to the database. Loading local fallback data.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 relative">
+        <AnimatedBackground />
+        <div className="min-h-screen flex items-center justify-center relative z-10">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-400 mx-auto mb-4"></div>
+            <p className="text-white">Loading Products...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 relative">
+      <AnimatedBackground />
+      <div className="relative z-10">
+        <Header />
+        <Hero />
+        
+        {connectionStatus === 'disconnected' && (
+          <div className="bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 p-4 text-center relative z-20">
+            <p>Loaded local fallback data. Information may be outdated.</p>
+            <button 
+              onClick={checkConnectionAndLoadData}
+              className="ml-4 text-yellow-300 hover:text-yellow-200 underline"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+        
+        {error && connectionStatus === 'connected' && (
+          <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 text-center relative z-20">
+            <p>{error}</p>
+            <button 
+              onClick={checkConnectionAndLoadData}
+              className="ml-4 text-red-300 hover:text-red-200 underline"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+        
+        <ProductsGrid />
+        
+        <Footer />
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  return (
+    <SettingsProvider>
+      <Router>
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/admin" element={<AdminPanel />} />
+          <Route path="/winning-photos" element={<WinningPhotosPage />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Router>
+    </SettingsProvider>
+  );
+}
+
+export default App;

@@ -1,0 +1,97 @@
+export const en = {
+    // General
+    loading: 'Loading...',
+    errorTitle: 'Error',
+    error: 'An error occurred. Please try again.',
+    goBack: 'Go Back',
+    backToHome: 'Back to Home',
+    next: 'Next',
+    back: 'Back',
+    
+    // Payment & Products
+    proceedToPaymentLink: 'Proceed to Payment Link',
+    redirectMessage: 'You will be redirected to an external site to complete your purchase.',
+    backupLink1: 'Backup Link 1',
+    backupLink2: 'Backup Link 2',
+    backupLink3: 'Backup Link 3',
+    backupLink4: 'Backup Link 4',
+    backupLinkNote: "Note: If the first link doesn't work, try paying via the backup links.",
+    payFor: 'Pay for',
+    via: 'Via',
+    paymentDetails: 'Payment Details',
+    network: 'Network',
+    binanceId: 'Binance ID / Pay ID',
+    walletAddress: 'Wallet Address',
+    accountHolder: 'Account Holder',
+    accountNumber: 'Account Number',
+    iban: 'IBAN',
+    amountToPay: 'Amount to Pay',
+    transferNotice: 'Please transfer the exact amount shown above.',
+    iHavePaidButton: 'I Have Paid',
+    
+    // Pre-Purchase
+    prePurchaseTitle: 'Order Setup',
+    prePurchaseSubtitle: 'Complete the following steps to get your product.',
+    step1Title: 'Personal Details',
+    step2Title: 'Payment Method',
+    countryLabel: 'Country',
+    countryPlaceholder: 'Select your country',
+    emailLabel: 'Email Address',
+    emailPlaceholder: 'your@email.com',
+    phoneLabel: 'Phone Number',
+    phonePlaceholder: '123456789',
+    
+    // Payment Methods Cards
+    globalPayment: 'Global Payment',
+    globalPaymentDesc: 'Visa / Mastercard',
+    localPayment: 'Local Payment',
+    localPaymentDesc: 'Bank Transfer / E-Wallet',
+    cryptoPayment: 'Crypto Payment',
+    cryptoPaymentDesc: 'USDT / Binance Pay',
+
+    infoNote: 'Make sure your information is correct. The product key will be sent to this email.',
+    proceedToPurchaseButton: 'Confirm & Pay',
+    savingInfo: 'Processing...',
+    
+    // Compatibility Check
+    compatibilityTitle: 'System Compatibility',
+    checkingFor: 'Checking compatibility for',
+    backToProducts: 'Back to Products',
+    cpuLabel: 'Processor (CPU)',
+    gpuLabel: 'Graphics Card (GPU)',
+    igpuLabel: 'Intel Integrated Graphics',
+    cpuIntel: 'Intel',
+    cpuAmd: 'AMD',
+    gpuNvidia: 'NVIDIA',
+    gpuAmd: 'AMD',
+    gpuIntel: 'Intel',
+    igpuYes: 'Yes',
+    igpuNo: 'No',
+    checkButton: 'Check Compatibility',
+    compatibleTitle: 'System Compatible',
+    compatibleMessage: 'Your system meets the requirements for this product.',
+    proceedButton: 'Proceed to Purchase',
+    incompatibleTitle: 'Not Compatible',
+    incompatibleMessageGeneral: 'This product is not compatible with your system (Intel iGPU detected).',
+    suggestionsTitle: 'Recommended Alternatives',
+    noSuggestions: 'No alternative products found for your configuration.',
+    
+    // Validation
+    emailRequired: 'Email is required',
+    emailInvalid: 'Invalid email address',
+    phoneRequired: 'Phone number is required',
+    phoneInvalid: 'Invalid phone number',
+    countryRequired: 'Please select a country',
+    
+    // Modal
+    modalTitle: 'Confirm Payment',
+    modalSubmitButton: 'Submit Details',
+    formError: 'Please fill in all required fields.',
+    anydeskLabel: 'AnyDesk ID (Optional)',
+    deliveryTitle: 'Delivery',
+    deliverySubtitle: 'Click below after payment',
+    instructionsTitle: 'Instructions',
+    errorLoadingImage: 'Failed to load payment image.',
+};
+
+export type Translations = typeof en;

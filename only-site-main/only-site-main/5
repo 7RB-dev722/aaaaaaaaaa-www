@@ -1,0 +1,133 @@
+# Cheatloop - Professional Gaming Tools
+
+A professional website for selling gaming tools for PUBG Mobile and Call of Duty Mobile.
+
+## Features
+
+- 🎮 Professional product display
+- 🛡️ Main account safety guarantee
+- 📱 Responsive design for all devices
+- 🔧 Integrated admin panel
+- 📸 Image upload system for galleries
+- 🗂️ Product and category management
+- 🔒 Secure authentication
+
+## Tech Stack
+
+- **Frontend**: React 18 + TypeScript + Vite
+- **Styling**: Tailwind CSS
+- **Icons**: Lucide React
+- **Database**: Supabase
+- **Storage**: Supabase Storage
+- **Routing**: React Router DOM
+
+## Setup and Running
+
+### 1. Install Dependencies
+
+```bash
+npm install
+```
+
+### 2. Setup Supabase
+
+1. Create a new project on [Supabase](https://supabase.com).
+2. Copy the `.env.example` file to `.env`.
+3. Add your Supabase credentials:
+
+```env
+VITE_SUPABASE_URL=your_supabase_project_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
+
+### 3. Database Setup
+
+Migrations will be applied automatically on the first connection to Supabase.
+
+### 4. Run the Project
+
+```bash
+npm run dev
+```
+
+## Admin Panel
+
+### Access
+- **URL**: `/admin`
+- **Email**: `abdulawatban@gmail.com`
+- **Password**: `07808061565`
+
+### Features
+- Manage Products (Add, Edit, Delete)
+- Manage Categories
+- Upload Images
+- Product Statistics
+- User-friendly interface
+
+## Project Structure
+
+```
+src/
+├── components/          # React Components
+│   ├── AdminDashboard.tsx
+│   ├── AdminLogin.tsx
+│   ├── AdminPanel.tsx
+│   ├── Header.tsx
+│   ├── Hero.tsx
+│   ├── ProductCard.tsx
+│   ├── ProductSection.tsx
+│   └── Footer.tsx
+├── lib/
+│   └── supabase.ts     # Supabase config and services
+├── App.tsx             # Main component
+└── main.tsx           # Entry point
+
+supabase/
+└── migrations/         # Database migrations
+```
+
+## Database
+
+### Tables
+
+#### `categories`
+- `id`: UUID (Primary Key)
+- `name`: Category name
+- `slug`: Category slug
+- `created_at`: Creation date
+
+#### `products`
+- `id`: UUID (Primary Key)
+- `title`: Product name
+- `price`: Price
+- `features`: List of features
+- `description`: Description
+- `buy_link`: Purchase link
+- `image`: Image URL
+- `is_popular`: Is it a popular product?
+- `category_id`: Foreign Key to categories
+- `created_at`: Creation date
+- `updated_at`: Last update date
+
+### Storage
+- `product-images`: Bucket for images
+- Supported types: JPG, PNG, GIF, WebP
+- Max size: 10MB per image
+
+## Security
+
+- Row Level Security (RLS) is enabled on all tables.
+- Secure policies for read and write access.
+- Protected image uploads.
+- Secure authentication for the admin panel.
+
+## Support
+
+For support, you can contact us via:
+- Discord: [Link](https://discord.gg/sY5EcUVjeA)
+- WhatsApp: [Link](https://api.whatsapp.com/send?phone=9647832941204)
+- Telegram: [Link](https://t.me/+UbDn_RQ7pBw4MjRi)
+
+## License
+
+© 2025 Cheatloop. All rights reserved.

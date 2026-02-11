@@ -1,0 +1,424 @@
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error('Missing Supabase environment variables. Please check your .env file.');
+}
+
+export const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
+
+export interface Category {
+  id: string;
+  name: string;
+  slug: string;
+  created_at?: string;
+}
+
+export interface Product {
+  id: string;
+  title: string;
+  price: number;
+  features: string[];
+  description: string;
+  buy_link: string;
+  image?: string;
+  is_popular?: boolean;
+  is_hidden?: boolean;
+  category: 'pubg' | 'codm';
+  category_id: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface WinningPhoto {
+  id: string;
+  created_at?: string;
+  image_url: string;
+  product_name: string;
+  description?: string;
+  position?: number;
+}
+
+export interface SiteSetting {
+  key: string;
+  value: string;
+}
+
+export const settingsService = {
+  async getSettings(): Promise<Record<string, string>> {
+    if (!supabase) throw new Error('Supabase not configured');
+    const { data, error } = await supabase.from('site_settings').select('*');
+    if (error) {
+      console.error('Error fetching settings:', error);
+      throw new Error(`Failed to fetch settings: ${error.message}`);
+    }
+    return (data || []).reduce((acc, setting) => {
+      acc[setting.key] = setting.value;
+      return acc;
+    }, {} as Record<string, string>);
+  },
+
+  async updateSettings(settings: SiteSetting[]): Promise<void> {
+    if (!supabase) throw new Error('Supabase not configured');
+    const { error } = await supabase.from('site_settings').upsert(settings);
+    if (error) {
+      console.error('Error updating settings:', error);
+      throw new Error(`Failed to update settings: ${error.message}`);
+    }
+  },
+};
+
+export const categoryService = {
+  async getAllCategories(): Promise<Category[]> {
+    if (!supabase) {
+      throw new Error('Supabase not configured');
+    }
+    
+    try {
+      const { data, error } = await supabase
+        .from('categories')
+        .select('*')
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching categories:', error);
+        throw new Error(`Failed to fetch categories: ${error.message}`);
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error('Category service error:', error);
+      throw error;
+    }
+  },
+
+  async addCategory(name: string): Promise<Category> {
+    if (!supabase) {
+      throw new Error('Supabase not configured');
+    }
+    
+    try {
+      const slug = name.toLowerCase()
+        .replace(/\s+/g, '-')
+        .replace(/[^a-z0-9-]/g, '');
+      
+      const { data, error } = await supabase
+        .from('categories')
+        .insert([{ name, slug }])
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error adding category:', error);
+        throw new Error(`Failed to add category: ${error.message}`);
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Add category error:', error);
+      throw error;
+    }
+  },
+
+  async deleteCategory(id: string): Promise<void> {
+    if (!supabase) {
+      throw new Error('Supabase not configured');
+    }
+    
+    try {
+      const { error } = await supabase
+        .from('categories')
+        .delete()
+        .eq('id', id);
+
+      if (error) {
+        console.error('Error deleting category:', error);
+        throw new Error(`Failed to delete category: ${error.message}`);
+      }
+    } catch (error) {
+      console.error('Delete category error:', error);
+      throw error;
+    }
+  }
+};
+
+export const productService = {
+  async getAllProducts(): Promise<Product[]> {
+    if (!supabase) {
+      throw new Error('Supabase not configured');
+    }
+    
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching products:', error);
+        throw new Error(`Failed to fetch products: ${error.message}`);
+      }
+
+      const productsWithHidden = (data || []).map(product => ({
+        ...product,
+        is_hidden: product.is_hidden ?? false
+      }));
+
+      return productsWithHidden;
+    } catch (error) {
+      console.error('Get products error:', error);
+      throw error;
+    }
+  },
+
+  async getVisibleProducts(): Promise<Product[]> {
+    if (!supabase) {
+      throw new Error('Supabase not configured');
+    }
+
+    // First attempt: get visible products directly
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .eq('is_hidden', false)
+      .order('created_at', { ascending: true });
+
+    // If the first attempt is successful, return the data.
+    if (!error) {
+      return (data || []).map(product => ({
+        ...product,
+        is_hidden: product.is_hidden ?? false,
+      }));
+    }
+    
+    // If the first attempt failed, log the error.
+    console.error('Error fetching visible products:', error);
+
+    // If the error is because the 'is_hidden' column doesn't exist, try a fallback.
+    if (error.message.includes('is_hidden') || error.code === 'PGRST204') {
+      console.warn('`is_hidden` column not found, falling back to fetching all products.');
+      try {
+        const allProducts = await this.getAllProducts();
+        // Manually filter since the direct query failed.
+        return allProducts.filter(product => !product.is_hidden);
+      } catch (fallbackError) {
+        console.error('Fallback attempt to get all products also failed:', fallbackError);
+        // Throw a more informative error.
+        throw new Error(`Failed to fetch visible products, and the fallback attempt also failed. Original error: ${error.message}`);
+      }
+    }
+
+    // For any other type of error from the first attempt, re-throw it.
+    throw new Error(`Failed to fetch visible products: ${error.message}`);
+  },
+
+  async addProduct(product: Omit<Product, 'id' | 'created_at' | 'updated_at'>): Promise<Product> {
+    if (!supabase) {
+      throw new Error('Supabase not configured');
+    }
+    
+    try {
+      const productData = {
+        title: product.title || '',
+        price: product.price || 0,
+        features: product.features || [],
+        description: product.description || '',
+        buy_link: product.buy_link || '',
+        image: product.image || '',
+        is_popular: product.is_popular || false,
+        is_hidden: product.is_hidden || false,
+        category: product.category || 'pubg',
+        category_id: product.category_id || ''
+      };
+
+      const { data, error } = await supabase
+        .from('products')
+        .insert([productData])
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error adding product:', error);
+        throw new Error(`Failed to add product: ${error.message}`);
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Add product error:', error);
+      throw error;
+    }
+  },
+
+  async updateProduct(id: string, product: Partial<Product>): Promise<Product> {
+    if (!supabase) {
+      throw new Error('Supabase not configured');
+    }
+    
+    try {
+      const updateData: any = {};
+      
+      if (product.title !== undefined) updateData.title = product.title;
+      if (product.price !== undefined) updateData.price = product.price;
+      if (product.features !== undefined) updateData.features = product.features;
+      if (product.description !== undefined) updateData.description = product.description;
+      if (product.buy_link !== undefined) updateData.buy_link = product.buy_link;
+      if (product.image !== undefined) updateData.image = product.image;
+      if (product.is_popular !== undefined) updateData.is_popular = product.is_popular;
+      if (product.is_hidden !== undefined) updateData.is_hidden = product.is_hidden;
+      if (product.category !== undefined) updateData.category = product.category;
+      if (product.category_id !== undefined) updateData.category_id = product.category_id;
+
+      const { data, error } = await supabase
+        .from('products')
+        .update(updateData)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error updating product:', error);
+        
+        if (error.message.includes('is_hidden') || error.code === 'PGRST204') {
+          throw new Error('The `is_hidden` column does not exist. Please apply the required database migrations.');
+        }
+        
+        throw new Error(`Failed to update product: ${error.message}`);
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Update product error:', error);
+      throw error;
+    }
+  },
+
+  async deleteProduct(id: string): Promise<void> {
+    if (!supabase) {
+      throw new Error('Supabase not configured');
+    }
+    
+    try {
+      const { error } = await supabase
+        .from('products')
+        .delete()
+        .eq('id', id);
+
+      if (error) {
+        console.error('Error deleting product:', error);
+        throw new Error(`Failed to delete product: ${error.message}`);
+      }
+    } catch (error) {
+      console.error('Delete product error:', error);
+      throw error;
+    }
+  }
+};
+
+export const winningPhotosService = {
+  async getPhotos(productName?: string): Promise<WinningPhoto[]> {
+    if (!supabase) throw new Error('Supabase not configured');
+    let query = supabase
+      .from('winning_photos')
+      .select('*')
+      .order('position', { ascending: true, nullsFirst: false })
+      .order('created_at', { ascending: false });
+
+    if (productName) {
+      query = query.eq('product_name', productName);
+    }
+
+    const { data, error } = await query;
+    if (error) throw new Error(`Failed to fetch winning photos: ${error.message}`);
+    return data || [];
+  },
+
+  async addPhotos(photos: Omit<WinningPhoto, 'id' | 'created_at' | 'position'>[]): Promise<WinningPhoto[]> {
+    if (!supabase) throw new Error('Supabase not configured');
+    if (photos.length === 0) return [];
+    
+    // Get max position for each product to append new photos
+    const productNames = [...new Set(photos.map(p => p.product_name))];
+    const { data: maxPositions, error: posError } = await supabase
+      .from('winning_photos')
+      .select('product_name, position')
+      .in('product_name', productNames)
+      .order('position', { ascending: false });
+
+    if (posError) throw new Error(`Failed to get max positions: ${posError.message}`);
+
+    const maxPositionMap = productNames.reduce((acc, name) => {
+      const maxForProduct = maxPositions?.find(p => p.product_name === name)?.position;
+      acc[name] = maxForProduct || 0;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const photosToInsert = photos.map((photo, index) => ({
+      ...photo,
+      position: maxPositionMap[photo.product_name] + index + 1
+    }));
+
+    const { data, error } = await supabase
+      .from('winning_photos')
+      .insert(photosToInsert)
+      .select();
+    if (error) {
+      console.error('Error adding winning photos:', error);
+      throw new Error(`Failed to add winning photos: ${error.message}`);
+    }
+    return data || [];
+  },
+
+  async updatePhotoPositions(updates: { id: string; position: number }[]): Promise<void> {
+    if (!supabase) throw new Error('Supabase not configured');
+    if (updates.length === 0) return;
+
+    const updatePromises = updates.map(({ id, position }) =>
+      supabase
+        .from('winning_photos')
+        .update({ position: position })
+        .eq('id', id)
+    );
+
+    const results = await Promise.all(updatePromises);
+
+    const firstErrorResult = results.find(result => result.error);
+    if (firstErrorResult) {
+      console.error('Error updating photo positions:', firstErrorResult.error);
+      throw new Error(`Failed to update photo positions: ${firstErrorResult.error.message}`);
+    }
+  },
+
+  async deletePhoto(id: string): Promise<void> {
+    if (!supabase) throw new Error('Supabase not configured');
+    const { error } = await supabase
+      .from('winning_photos')
+      .delete()
+      .eq('id', id);
+    if (error) throw new Error(`Failed to delete winning photo: ${error.message}`);
+  },
+};
+
+export const testSupabaseConnection = async (): Promise<boolean> => {
+  if (!supabase) {
+    return false;
+  }
+  
+  try {
+    const { error } = await supabase
+      .from('categories')
+      .select('id')
+      .limit(1);
+
+    if (error) {
+      console.error('Supabase connection test failed:', error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Supabase connection error:', error);
+    return false;
+  }
+};

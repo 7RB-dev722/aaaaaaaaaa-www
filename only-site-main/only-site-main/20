@@ -1,0 +1,35 @@
+import React, { useState, useEffect } from 'react';
+import AdminLogin from './AdminLogin';
+import AdminDashboard from './AdminDashboard';
+
+const AdminPanel: React.FC = () => {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    // Check if admin is already logged in
+    const adminLoggedIn = localStorage.getItem('adminLoggedIn');
+    if (adminLoggedIn === 'true') {
+      setIsLoggedIn(true);
+    }
+  }, []);
+
+  const handleLogin = (success: boolean) => {
+    setIsLoggedIn(success);
+  };
+
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+  };
+
+  return (
+    <>
+      {isLoggedIn ? (
+        <AdminDashboard onLogout={handleLogout} />
+      ) : (
+        <AdminLogin onLogin={handleLogin} />
+      )}
+    </>
+  );
+};
+
+export default AdminPanel;

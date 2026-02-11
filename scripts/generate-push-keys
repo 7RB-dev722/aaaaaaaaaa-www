@@ -1,0 +1,49 @@
+import webpush from 'web-push';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Generate VAPID keys
+const vapidKeys = webpush.generateVAPIDKeys();
+const envPath = path.resolve(__dirname, '../.env');
+
+console.log('\n\x1b[36m=======================================\x1b[0m');
+console.log('\x1b[1m🔑 جاري إعداد مفاتيح الإشعارات...\x1b[0m');
+console.log('\x1b[36m=======================================\x1b[0m\n');
+
+let envContent = '';
+try {
+  if (fs.existsSync(envPath)) {
+    envContent = fs.readFileSync(envPath, 'utf8');
+  } else {
+    console.log('\x1b[33mملف .env غير موجود، سيتم إنشاؤه.\x1b[0m');
+  }
+
+  // Update Public Key in .env
+  const publicKeyKey = 'VITE_VAPID_PUBLIC_KEY';
+  const publicKeyValue = `"${vapidKeys.publicKey}"`;
+  
+  if (envContent.includes(publicKeyKey)) {
+    // Replace existing key
+    envContent = envContent.replace(new RegExp(`${publicKeyKey}=.*`), `${publicKeyKey}=${publicKeyValue}`);
+  } else {
+    // Append new key
+    envContent += `\n${publicKeyKey}=${publicKeyValue}\n`;
+  }
+
+  fs.writeFileSync(envPath, envContent);
+  console.log(`✅ تم تحديث \x1b[32m${publicKeyKey}\x1b[0m في ملف .env بنجاح.`);
+
+} catch (error) {
+  console.error('❌ حدث خطأ أثناء تحديث ملف .env:', error);
+}
+
+console.log('\n\x1b[33m⚠️  خطوة هامة جداً (مطلوبة لعمل الإشعارات):\x1b[0m');
+console.log('يجب عليك إضافة المفتاح السري التالي في إعدادات Supabase Edge Function:');
+console.log('\n\x1b[41m\x1b[37m VAPID_PRIVATE_KEY \x1b[0m');
+console.log('\x1b[32m' + vapidKeys.privateKey + '\x1b[0m');
+console.log('\nانسخ المفتاح الأخضر أعلاه وضعه في: Supabase Dashboard > Edge Functions > smooth-processor > Secrets');
+console.log('\x1b[36m=======================================\x1b[0m\n');
