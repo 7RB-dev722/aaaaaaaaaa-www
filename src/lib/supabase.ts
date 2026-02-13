@@ -95,9 +95,13 @@ export interface Product {
   video_library_id?: string; // Reference to video library
   is_popular?: boolean;
   is_hidden?: boolean;
+  masked_name?: string;
+  masked_domain?: string;
   category: 'pubg' | 'codm';
   category_id: string;
   purchase_image_id?: string | null;
+  payment_gateway_tax?: number; // Tax percentage for payment gateway
+  purchase_method?: 'external' | 'qr' | 'gateway'; // Method of purchase
   created_at?: string;
   updated_at?: string;
   sort_order?: number;
@@ -142,6 +146,8 @@ export interface InvoiceTemplateData {
   company_name: string | null;
   support_contact: string | null;
   footer_notes: string | null;
+  bg_color?: string;
+  text_color?: string;
   created_at: string;
 }
 
@@ -154,7 +160,6 @@ export interface ProductKey {
   used_by_email: string | null;
   used_at: string | null;
   purchase_intent_id: string | null;
-  expiration_date?: string | null;
 }
 
 export interface AuthUser {
@@ -179,6 +184,13 @@ export interface LocalPaymentMethod {
   is_crypto?: boolean;
   crypto_network?: string;
   image_url?: string;
+  created_at?: string;
+}
+
+export interface VerifiedUser {
+  id: string;
+  username: string;
+  product_type: string;
   created_at?: string;
 }
 
@@ -359,6 +371,54 @@ export const categoryService = {
   }
 };
 
+export const verifiedUserService = {
+  async getAll(): Promise<VerifiedUser[]> {
+    if (!supabase) throw new Error('Supabase not configured');
+    const { data, error } = await supabase
+      .from('verified_users')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) throw new Error(`Failed to fetch verified users: ${error.message}`);
+    return data || [];
+  },
+
+  async add(username: string, productType: string): Promise<VerifiedUser> {
+    if (!supabase) throw new Error('Supabase not configured');
+    const { data, error } = await supabase
+      .from('verified_users')
+      .insert([{ username, product_type: productType }])
+      .select()
+      .single();
+    if (error) throw new Error(`Failed to add verified user: ${error.message}`);
+    return data;
+  },
+
+  async delete(id: string): Promise<void> {
+    if (!supabase) throw new Error('Supabase not configured');
+    const { error } = await supabase
+      .from('verified_users')
+      .delete()
+      .eq('id', id);
+    if (error) throw new Error(`Failed to delete verified user: ${error.message}`);
+  },
+
+  async checkVerification(username: string, _productType: string): Promise<boolean> {
+    if (!supabase) throw new Error('Supabase not configured');
+    // إذا كان المستخدم يمتلك أي توثيق، فإنه مسموح له بشراء أي شيء
+    // البحث غير حساس لحالة الأحرف (ilike) للتساهل مع المستخدم
+    const { data, error } = await supabase
+      .from('verified_users')
+      .select('id')
+      .ilike('username', username)
+      .maybeSingle();
+    if (error) {
+      console.error('Verification check error:', error);
+      return false;
+    }
+    return !!data;
+  }
+};
+
 export const productService = {
   async getProductById(id: string): Promise<Product> {
     if (!supabase) throw new Error('Supabase not configured');
@@ -465,6 +525,9 @@ export const productService = {
         category_id: product.category_id || '',
         video_link: product.video_link || null,
         purchase_image_id: product.purchase_image_id || null,
+        payment_gateway_tax: product.payment_gateway_tax || 0,
+        masked_name: product.masked_name || '',
+        masked_domain: product.masked_domain || '',
         sort_order: nextPos
       };
 
@@ -722,14 +785,13 @@ export const invoiceTemplateService = {
 };
 
 export const productKeysService = {
-  async addKeys(productId: string, keys: string[], expirationDate?: string | null): Promise<number> {
+  async addKeys(productId: string, keys: string[]): Promise<number> {
     if (!supabase) throw new Error('Supabase not configured');
     if (keys.length === 0) return 0;
 
     const keysToInsert = keys.map(key => ({
       product_id: productId,
       key_value: key.trim(),
-      expiration_date: expirationDate || null,
     }));
 
     const { data, error } = await supabase

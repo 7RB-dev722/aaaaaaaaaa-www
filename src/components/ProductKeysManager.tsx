@@ -13,7 +13,7 @@ interface ProductKeysManagerProps {
 }
 
 const ProductKeysManager: React.FC<ProductKeysManagerProps> = ({ products, keys, onKeysUpdate, saving, setSaving, setError, setSuccess }) => {
-  const [newKeysData, setNewKeysData] = useState({ productId: '', keys: '', expirationDate: '' });
+  const [newKeysData, setNewKeysData] = useState({ productId: '', keys: '' });
   const [filters, setFilters] = useState({ productId: 'all', status: 'all' });
   const [keySearchTerm, setKeySearchTerm] = useState('');
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
@@ -65,7 +65,7 @@ const ProductKeysManager: React.FC<ProductKeysManagerProps> = ({ products, keys,
     setSaving(true);
     setError(null);
     try {
-      const insertedCount = await productKeysService.addKeys(newKeysData.productId, keysArray, newKeysData.expirationDate || null);
+      const insertedCount = await productKeysService.addKeys(newKeysData.productId, keysArray);
       const totalAttempted = keysArray.length;
       const skippedCount = totalAttempted - insertedCount;
 
@@ -75,7 +75,7 @@ const ProductKeysManager: React.FC<ProductKeysManagerProps> = ({ products, keys,
       }
       
       setSuccess(successMessage);
-      setNewKeysData({ productId: '', keys: '', expirationDate: '' });
+      setNewKeysData({ productId: '', keys: '' });
       setIsAddMode(false);
       onKeysUpdate();
       setTimeout(() => setSuccess(null), 5000);
@@ -342,15 +342,6 @@ const ProductKeysManager: React.FC<ProductKeysManagerProps> = ({ products, keys,
                             {products.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
                         </select>
                     </div>
-                    <div>
-                        <label className="block text-xs font-bold text-cyan-400 uppercase tracking-wider mb-2">تاريخ انتهاء التفعيل (اختياري)</label>
-                        <input 
-                            type="date"
-                            value={newKeysData.expirationDate || ''} 
-                            onChange={(e) => setNewKeysData({ ...newKeysData, expirationDate: e.target.value })} 
-                            className="w-full p-3 bg-black border border-white/10 rounded-xl text-white focus:outline-none focus:border-cyan-500 transition-all hover:bg-white/5"
-                        />
-                    </div>
                     <div className="bg-blue-900/10 border border-blue-500/20 rounded-xl p-4">
                         <h4 className="text-blue-400 text-sm font-bold mb-2 flex items-center gap-2"><AlertCircle className="w-4 h-4"/> تعليمات</h4>
                         <ul className="text-xs text-gray-400 space-y-1 list-disc list-inside">
@@ -496,9 +487,6 @@ const ProductKeysManager: React.FC<ProductKeysManagerProps> = ({ products, keys,
                               </h4>
                               <div className="text-xs text-gray-500 mt-0.5 font-mono flex flex-col gap-0.5">
                                   <span>{new Date(key.created_at).toLocaleDateString('en-GB')}</span>
-                                  {key.expiration_date && (
-                                    <span className="text-orange-400">ينتهي: {new Date(key.expiration_date).toLocaleDateString('en-GB')}</span>
-                                  )}
                               </div>
                           </div>
                       </div>

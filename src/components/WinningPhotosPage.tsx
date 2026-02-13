@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Home, Image as ImageIcon, AlertTriangle, X, ChevronLeft, ChevronRight, Calendar, Clock, Star } from 'lucide-react';
+import { Home, Image as ImageIcon, AlertTriangle, X, ChevronLeft, ChevronRight, Calendar, Clock, Star, Camera, Sparkles, LayoutGrid } from 'lucide-react';
 import { winningPhotosService, WinningPhoto } from '../lib/supabase';
 import { AnimatedBackground } from './AnimatedBackground';
 
@@ -24,7 +24,7 @@ const WinningPhotosPage: React.FC = () => {
                 const data = await winningPhotosService.getPhotos(productFilter || undefined);
                 setPhotos(data);
             } catch (err: any) {
-                setError(err.message || 'Failed to load photos.');
+                setError(err.message || 'فشل تحميل الصور.');
             } finally {
                 setLoading(false);
             }
@@ -59,22 +59,19 @@ const WinningPhotosPage: React.FC = () => {
         setFilteredPhotos(result);
     }, [photos, timeFilter, loading]);
 
-
     useEffect(() => {
-      const handleKeyDown = (e: KeyboardEvent) => {
-        if (lightboxIndex === null) return;
-        if (e.key === 'ArrowRight') {
-          showNext();
-        } else if (e.key === 'ArrowLeft') {
-          showPrev();
-        } else if (e.key === 'Escape') {
-          closeLightbox();
-        }
-      };
-      window.addEventListener('keydown', handleKeyDown);
-      return () => {
-        window.removeEventListener('keydown', handleKeyDown);
-      };
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (lightboxIndex === null) return;
+            if (e.key === 'ArrowRight') {
+                showNext();
+            } else if (e.key === 'ArrowLeft') {
+                showPrev();
+            } else if (e.key === 'Escape') {
+                closeLightbox();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
     }, [lightboxIndex, filteredPhotos.length]);
 
     const openLightbox = (photoId: string) => {
@@ -110,10 +107,10 @@ const WinningPhotosPage: React.FC = () => {
     const FilterButton = ({ filter, label, icon: Icon }: { filter: TimeFilter, label: string, icon: React.ElementType }) => (
         <button
             onClick={() => setTimeFilter(filter)}
-            className={`flex items-center space-x-2 px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200
+            className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-xl transition-all duration-300
                 ${timeFilter === filter 
-                    ? 'bg-cyan-500 text-white shadow-md shadow-cyan-500/20' 
-                    : 'bg-slate-700/50 text-gray-300 hover:bg-slate-700 hover:text-white'
+                    ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/30 scale-105' 
+                    : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'
                 }`}
         >
             <Icon className="w-4 h-4" />
@@ -122,86 +119,128 @@ const WinningPhotosPage: React.FC = () => {
     );
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white relative">
+        <div className="min-h-screen bg-[#050505] text-white relative font-['Tajawal']" dir="rtl">
             <AnimatedBackground />
-            <div className="relative z-10 container mx-auto px-6 py-12">
-                <div className="flex justify-between items-center mb-6">
-                     <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
-                        {productFilter ? `Winning Photos: ${productFilter}` : 'Winning Photos'}
-                    </h1>
-                    <Link to="/" className="relative">
-                        <div className="container-back relative p-1 bg-gradient-to-r from-cyan-400 to-purple-500 rounded-xl transition-all duration-400 hover:shadow-lg">
-                            <div className="absolute inset-0 bg-gradient-to-r from-cyan-400 to-purple-500 rounded-xl opacity-0 blur-lg transition-all duration-400 hover:opacity-100 hover:blur-xl"></div>
-                            <button className="relative bg-black text-white px-6 py-3 rounded-lg font-medium text-sm transition-all duration-300 hover:bg-gray-900 flex items-center space-x-2">
-                                <Home className="w-4 h-4" />
-                                <span>Back to Home</span>
-                            </button>
+            
+            <div className="relative z-10 container mx-auto px-4 py-12">
+                {/* Studio Header */}
+                <div className="flex flex-col md:flex-row justify-between items-center gap-8 mb-16">
+                    <div className="flex items-center gap-4">
+                        <div className="p-4 bg-cyan-500/10 rounded-2xl border border-cyan-500/20 shadow-2xl shadow-cyan-500/10">
+                            <Camera className="w-10 h-10 text-cyan-400 animate-pulse" />
+                        </div>
+                        <div>
+                            <h1 className="text-4xl md:text-5xl font-black bg-gradient-to-l from-white via-cyan-300 to-cyan-500 bg-clip-text text-transparent mb-2">
+                                {productFilter ? `استوديو: ${productFilter}` : 'استوديو الفوز'}
+                            </h1>
+                            <p className="text-gray-500 flex items-center gap-2 text-sm">
+                                <Sparkles className="w-4 h-4 text-yellow-500" />
+                                عرض صور الفوز والاشتراكات النشطة
+                            </p>
+                        </div>
+                    </div>
+
+                    <Link to="/" className="group">
+                        <div className="relative p-0.5 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-2xl overflow-hidden transition-all duration-500 group-hover:shadow-[0_0_30px_-5px_rgba(6,182,212,0.5)]">
+                            <div className="relative bg-[#0a0a0a] px-8 py-4 rounded-[14px] flex items-center gap-3 transition-colors group-hover:bg-transparent">
+                                <Home className="w-5 h-5 text-cyan-400" />
+                                <span className="font-bold text-sm">العودة للرئيسية</span>
+                            </div>
                         </div>
                     </Link>
                 </div>
 
-                <div className="flex justify-center space-x-2 md:space-x-4 mb-12 bg-slate-800/50 backdrop-blur-sm p-2 rounded-xl max-w-md mx-auto">
-                    <FilterButton filter="all" label="All Time" icon={Star} />
-                    <FilterButton filter="today" label="Today" icon={Clock} />
-                    <FilterButton filter="week" label="Last Week" icon={Calendar} />
-                    <FilterButton filter="month" label="Last Month" icon={Calendar} />
+                {/* Filters */}
+                <div className="flex flex-wrap justify-center gap-3 mb-16 bg-white/5 backdrop-blur-xl p-2 rounded-2xl border border-white/10 max-w-fit mx-auto shadow-2xl">
+                    <FilterButton filter="all" label="كل الأوقات" icon={LayoutGrid} />
+                    <FilterButton filter="today" label="اليوم" icon={Clock} />
+                    <FilterButton filter="week" label="هذا الأسبوع" icon={Calendar} />
+                    <FilterButton filter="month" label="هذا الشهر" icon={Calendar} />
                 </div>
 
                 {loading && (
-                    <div className="flex items-center justify-center min-h-[50vh]">
-                        <div className="text-center">
-                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-400 mx-auto mb-4"></div>
-                            <p className="text-white">Loading Photos...</p>
+                    <div className="flex flex-col items-center justify-center min-h-[40vh]">
+                        <div className="relative w-20 h-20">
+                            <div className="absolute inset-0 border-4 border-cyan-500/20 rounded-full"></div>
+                            <div className="absolute inset-0 border-4 border-t-cyan-500 rounded-full animate-spin"></div>
                         </div>
+                        <p className="mt-6 text-gray-400 font-bold animate-pulse">جاري تحميل الاستوديو...</p>
                     </div>
                 )}
 
                 {error && (
-                     <div className="flex items-center justify-center min-h-[50vh]">
-                        <div className="text-center bg-red-500/10 border border-red-500/20 p-8 rounded-2xl max-w-lg">
-                            <AlertTriangle className="w-12 h-12 text-red-400 mx-auto mb-4" />
-                            <h2 className="text-2xl font-bold text-white mb-2">An Error Occurred</h2>
-                            <p className="text-red-300">{error}</p>
-                        </div>
+                    <div className="max-w-md mx-auto text-center p-8 bg-red-500/5 border border-red-500/20 rounded-3xl backdrop-blur-sm">
+                        <AlertTriangle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+                        <h2 className="text-2xl font-bold text-white mb-2">حدث خطأ ما</h2>
+                        <p className="text-red-400/80">{error}</p>
                     </div>
                 )}
 
                 {!loading && !error && filteredPhotos.length === 0 && (
-                    <div className="flex items-center justify-center min-h-[50vh]">
-                        <div className="text-center bg-slate-800/50 p-8 rounded-2xl max-w-lg">
-                            <ImageIcon className="w-12 h-12 text-gray-500 mx-auto mb-4" />
-                            <h2 className="text-2xl font-bold text-white mb-2">No Photos Found</h2>
-                            <p className="text-gray-400">No winning photos have been uploaded for this filter. Check back soon!</p>
-                        </div>
+                    <div className="max-w-md mx-auto text-center p-12 bg-white/5 border border-white/10 rounded-3xl backdrop-blur-sm">
+                        <ImageIcon className="w-20 h-20 text-gray-700 mx-auto mb-6" />
+                        <h2 className="text-2xl font-bold text-white mb-2">الاستوديو فارغ</h2>
+                        <p className="text-gray-500">لم يتم رفع أي صور فوز لهذا التصنيف بعد.</p>
                     </div>
                 )}
 
                 {!loading && !error && filteredPhotos.length > 0 && (
-                    <div className="space-y-16">
+                    <div className="space-y-24">
                         {Object.entries(groupedPhotos).map(([productName, productPhotos]) => (
-                            <div key={productName}>
+                            <div key={productName} className="relative">
                                 {!productFilter && (
-                                    <h2 className="text-3xl font-bold text-center mb-8 text-cyan-300">{productName}</h2>
+                                    <div className="flex items-center gap-4 mb-10">
+                                        <div className="h-px flex-1 bg-gradient-to-l from-cyan-500/50 to-transparent"></div>
+                                        <h2 className="text-2xl font-black text-white px-6 py-2 bg-white/5 rounded-full border border-white/10 backdrop-blur-sm">
+                                            {productName}
+                                        </h2>
+                                        <div className="h-px flex-1 bg-gradient-to-r from-cyan-500/50 to-transparent"></div>
+                                    </div>
                                 )}
-                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                                
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
                                     {productPhotos.map((photo, index) => (
                                         <div 
                                             key={photo.id}
-                                            className="group relative overflow-hidden rounded-2xl border border-slate-700/50 cursor-pointer"
-                                            style={{ animation: `fadeInUp 0.5s ease-out ${index * 0.1}s both` }}
+                                            className="group relative aspect-[4/5] rounded-[2rem] overflow-hidden bg-white/5 border border-white/10 cursor-pointer shadow-2xl transition-all duration-500 hover:scale-[1.02] hover:-translate-y-2 hover:border-cyan-500/50"
+                                            style={{ animation: `fadeInUp 0.6s cubic-bezier(0.23, 1, 0.32, 1) ${index * 0.1}s both` }}
                                             onClick={() => openLightbox(photo.id)}
                                         >
+                                            {/* Photo Image */}
                                             <img 
                                                 src={photo.image_url} 
-                                                alt={photo.description || `Winning photo for ${productName}`}
-                                                className="w-full h-80 object-cover transition-transform duration-300 group-hover:scale-105"
+                                                alt={photo.description || ''}
+                                                className="w-full h-full object-cover transition-all duration-700 group-hover:scale-110 group-hover:rotate-1"
                                             />
-                                            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-75 group-hover:opacity-100 transition-opacity"></div>
-                                            {photo.description && (
-                                                <p className="absolute bottom-0 left-0 right-0 p-4 text-sm text-gray-200 transition-transform duration-300 translate-y-4 group-hover:translate-y-0">
-                                                    {photo.description}
+                                            
+                                            {/* Studio Overlay */}
+                                            <div className="absolute inset-0 bg-gradient-to-t from-[#050505] via-[#050505]/20 to-transparent opacity-60 group-hover:opacity-90 transition-all duration-500"></div>
+                                            
+                                            {/* Photo Info */}
+                                            <div className="absolute inset-0 p-6 flex flex-col justify-end translate-y-4 group-hover:translate-y-0 transition-all duration-500">
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <div className="w-8 h-8 rounded-full bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center">
+                                                        <Star className="w-4 h-4 text-cyan-400" />
+                                                    </div>
+                                                    <span className="text-xs font-bold text-cyan-400 uppercase tracking-widest">Winning Shot</span>
+                                                </div>
+                                                <p className="text-white font-bold text-lg line-clamp-2 leading-tight mb-2">
+                                                    {photo.description || 'صورة فوز جديدة'}
                                                 </p>
-                                            )}
+                                                <div className="flex items-center gap-3 text-[10px] text-gray-500 font-bold">
+                                                    <span className="flex items-center gap-1">
+                                                        <Clock className="w-3 h-3" />
+                                                        {new Date(photo.created_at).toLocaleDateString('ar-EG')}
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            {/* View Button Overlay */}
+                                            <div className="absolute top-4 left-4 opacity-0 group-hover:opacity-100 transition-all duration-500 scale-50 group-hover:scale-100">
+                                                <div className="bg-white/10 backdrop-blur-md border border-white/20 p-3 rounded-2xl shadow-2xl">
+                                                    <Sparkles className="w-5 h-5 text-cyan-400" />
+                                                </div>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
@@ -211,37 +250,66 @@ const WinningPhotosPage: React.FC = () => {
                 )}
             </div>
 
+            {/* Studio Lightbox */}
             {lightboxIndex !== null && filteredPhotos.length > 0 && (
                 <div 
-                    className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in-up"
+                    className="fixed inset-0 bg-black/95 backdrop-blur-xl z-[100] flex items-center justify-center p-4 animate-fade-in"
                     onClick={closeLightbox}
                 >
-                    <button onClick={(e) => { e.stopPropagation(); closeLightbox(); }} className="absolute top-4 right-4 text-white hover:text-cyan-400 transition-colors p-2 z-[60] rounded-full bg-black/50">
-                        <X size={32} />
+                    {/* Lightbox Controls */}
+                    <button onClick={(e) => { e.stopPropagation(); closeLightbox(); }} className="absolute top-8 right-8 text-white/50 hover:text-white transition-all hover:rotate-90 p-3 z-[110] rounded-full bg-white/5 border border-white/10 backdrop-blur-md">
+                        <X size={28} />
                     </button>
 
-                    <button onClick={(e) => { e.stopPropagation(); showPrev(); }} className="absolute left-4 top-1/2 -translate-y-1/2 text-white hover:text-cyan-400 transition-colors p-2 z-[60] rounded-full bg-black/50">
-                        <ChevronLeft size={48} />
+                    <button onClick={(e) => { e.stopPropagation(); showPrev(); }} className="absolute left-8 top-1/2 -translate-y-1/2 text-white/50 hover:text-cyan-400 transition-all p-4 z-[110] rounded-full bg-white/5 border border-white/10 backdrop-blur-md group">
+                        <ChevronRight size={40} className="group-hover:-translate-x-1 transition-transform" />
+                    </button>
+
+                    <button onClick={(e) => { e.stopPropagation(); showNext(); }} className="absolute right-8 top-1/2 -translate-y-1/2 text-white/50 hover:text-cyan-400 transition-all p-4 z-[110] rounded-full bg-white/5 border border-white/10 backdrop-blur-md group">
+                        <ChevronLeft size={40} className="group-hover:translate-x-1 transition-transform" />
                     </button>
                     
-                    <div className="relative" onClick={(e) => e.stopPropagation()}>
-                        <img 
-                            src={filteredPhotos[lightboxIndex].image_url} 
-                            alt={filteredPhotos[lightboxIndex].description || ''}
-                            className="max-h-[90vh] max-w-[90vw] object-contain rounded-lg shadow-2xl shadow-cyan-500/20"
-                        />
-                        {filteredPhotos[lightboxIndex].description && (
-                            <div className="absolute bottom-0 left-0 right-0 text-center text-white p-4 bg-gradient-to-t from-black/80 to-transparent rounded-b-lg">
-                                <p>{filteredPhotos[lightboxIndex].description}</p>
-                            </div>
-                        )}
+                    <div className="relative max-w-5xl w-full flex flex-col items-center gap-6" onClick={(e) => e.stopPropagation()}>
+                        <div className="relative group">
+                            <div className="absolute -inset-4 bg-cyan-500/20 blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-1000"></div>
+                            <img 
+                                src={filteredPhotos[lightboxIndex].image_url} 
+                                alt={filteredPhotos[lightboxIndex].description || ''}
+                                className="relative max-h-[80vh] w-auto object-contain rounded-3xl shadow-[0_0_50px_-12px_rgba(6,182,212,0.5)] border border-white/10"
+                            />
+                        </div>
+                        
+                        <div className="text-center space-y-2 animate-fade-in-up">
+                            <h3 className="text-2xl font-black text-white">
+                                {filteredPhotos[lightboxIndex].description || 'تفاصيل الصورة'}
+                            </h3>
+                            <p className="text-cyan-400 font-bold text-sm tracking-widest uppercase">
+                                {filteredPhotos[lightboxIndex].product_name}
+                            </p>
+                        </div>
                     </div>
-
-                    <button onClick={(e) => { e.stopPropagation(); showNext(); }} className="absolute right-4 top-1/2 -translate-y-1/2 text-white hover:text-cyan-400 transition-colors p-2 z-[60] rounded-full bg-black/50">
-                        <ChevronRight size={48} />
-                    </button>
                 </div>
             )}
+
+            <style>{`
+                @keyframes fadeInUp {
+                    from { opacity: 0; transform: translateY(30px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+                .custom-scrollbar::-webkit-scrollbar {
+                    width: 6px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-track {
+                    background: rgba(255, 255, 255, 0.05);
+                }
+                .custom-scrollbar::-webkit-scrollbar-thumb {
+                    background: rgba(6, 182, 212, 0.3);
+                    border-radius: 10px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+                    background: rgba(6, 182, 212, 0.5);
+                }
+            `}</style>
         </div>
     );
 };

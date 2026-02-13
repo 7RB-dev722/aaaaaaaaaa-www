@@ -15,6 +15,10 @@ import CompatibilityCheckPage from './components/CompatibilityCheckPage';
 import PrePurchaseInfoPage from './components/PrePurchaseInfoPage';
 import LanguageSelectionPage from './components/LanguageSelectionPage';
 import LocalPaymentPage from './components/LocalPaymentPage';
+import PaymentSuccessPage from './components/PaymentSuccessPage';
+import PrivacyPolicyPage from './components/PrivacyPolicyPage';
+import TermsOfServicePage from './components/TermsOfServicePage';
+import RefundPolicyPage from './components/RefundPolicyPage';
 import AdminPanel from './components/AdminPanel';
 import { trafficService } from './lib/trafficService';
 import { AccessDeniedPage } from './components/AccessDeniedPage';
@@ -94,16 +98,20 @@ function App() {
             {/* Public Routes - Wrapped with PublicLayout for Magic Cursor */}
             <Route path="/" element={<PublicLayout><HomePage /></PublicLayout>} />
             <Route path="/winning-photos" element={<PublicLayout><WinningPhotosPage /></PublicLayout>} />
+            <Route path="/privacy" element={<PublicLayout><PrivacyPolicyPage /></PublicLayout>} />
+            <Route path="/terms" element={<PublicLayout><TermsOfServicePage /></PublicLayout>} />
+            <Route path="/refund" element={<PublicLayout><RefundPolicyPage /></PublicLayout>} />
             <Route path="/select-language/:productId" element={<PublicLayout><LanguageSelectionPage /></PublicLayout>} />
             <Route path="/pay/:productId" element={<PublicLayout><ImagePaymentPage /></PublicLayout>} />
             <Route path="/link-pay/:productId" element={<PublicLayout><LinkPaymentPage /></PublicLayout>} />
             <Route path="/local-pay/:productId" element={<PublicLayout><LocalPaymentPage /></PublicLayout>} />
+            <Route path="/payment-success" element={<PublicLayout><PaymentSuccessPage /></PublicLayout>} />
             <Route path="/check-compatibility/:productId" element={<PublicLayout><CompatibilityCheckPage /></PublicLayout>} />
             <Route path="/pre-purchase/:productId" element={<PublicLayout><PrePurchaseInfoPage /></PublicLayout>} />
             <Route path="/video-studio" element={<VideoPlayerStudio />} />
             
             {/* Integrated Admin Panel Route - NO Magic Cursor, Default System Cursor */}
-            <Route path="/admin/*" element={<AdminPanel />} />
+            <Route path="/senator/*" element={<AdminPanel />} />
             
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

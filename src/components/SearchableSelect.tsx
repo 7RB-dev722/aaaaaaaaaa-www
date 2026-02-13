@@ -1,9 +1,16 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChevronDown, Search } from 'lucide-react';
 
+interface SelectOption {
+  label: string;
+  value: string;
+  icon?: string;
+  isImageIcon?: boolean;
+}
+
 interface SearchableSelectProps {
   label: string;
-  options: string[];
+  options: (string | SelectOption)[];
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
@@ -34,15 +41,21 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
     };
   }, []);
 
-  const filteredOptions = options.filter((option) =>
-    option.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredOptions = options.filter((option) => {
+    const searchStr = typeof option === 'string' ? option : option.label;
+    return searchStr.toLowerCase().includes(searchTerm.toLowerCase());
+  });
 
-  const handleSelect = (option: string) => {
-    onChange(option);
+  const handleSelect = (option: string | SelectOption) => {
+    const val = typeof option === 'string' ? option : option.value;
+    onChange(val);
     setIsOpen(false);
     setSearchTerm('');
   };
+
+  const selectedOption = options.find(opt => 
+    typeof opt === 'string' ? opt === value : opt.value === value
+  );
 
   return (
     <div className={`relative ${className || ''}`} ref={selectRef}>
@@ -53,7 +66,20 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
         className={`w-full px-4 py-3.5 text-left bg-[#050507] border border-white/10 rounded-xl text-white focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 flex justify-between items-center transition-all shadow-inner ${isOpen ? 'border-cyan-500/50 ring-1 ring-cyan-500/50' : ''}`}
       >
         <span className={value ? 'text-white' : 'text-gray-500'}>
-          {value || placeholder || 'Select an option'}
+          {selectedOption ? (
+            <div className="flex items-center gap-2">
+              {typeof selectedOption !== 'string' && selectedOption.icon && (
+                selectedOption.isImageIcon ? (
+                  <img src={selectedOption.icon} alt="" className="w-5 h-3.5 object-cover rounded-sm shadow-sm" />
+                ) : (
+                  <span className="text-lg leading-none">{selectedOption.icon}</span>
+                )
+              )}
+              <span>{typeof selectedOption === 'string' ? selectedOption : selectedOption.label}</span>
+            </div>
+          ) : (
+            placeholder || 'Select an option'
+          )}
         </span>
         <ChevronDown
           className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${
@@ -77,15 +103,29 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
           </div>
           <ul className="overflow-y-auto flex-1 custom-scrollbar p-1">
             {filteredOptions.length > 0 ? (
-              filteredOptions.map((option) => (
-                <li
-                  key={option}
-                  onClick={() => handleSelect(option)}
-                  className="px-3 py-2.5 text-sm text-gray-300 hover:text-white hover:bg-white/10 rounded-lg cursor-pointer transition-colors"
-                >
-                  {option}
-                </li>
-              ))
+              filteredOptions.map((option) => {
+                const labelStr = typeof option === 'string' ? option : option.label;
+                const val = typeof option === 'string' ? option : option.value;
+                const icon = typeof option === 'string' ? null : option.icon;
+                const isImageIcon = typeof option === 'string' ? false : option.isImageIcon;
+                
+                return (
+                  <li
+                    key={val}
+                    onClick={() => handleSelect(option)}
+                    className="px-3 py-2.5 text-sm text-gray-300 hover:text-white hover:bg-white/10 rounded-lg cursor-pointer transition-colors flex items-center gap-3"
+                  >
+                    {icon && (
+                      isImageIcon ? (
+                        <img src={icon} alt="" className="w-5 h-3.5 object-cover rounded-sm shadow-sm" />
+                      ) : (
+                        <span className="text-lg leading-none">{icon}</span>
+                      )
+                    )}
+                    {labelStr}
+                  </li>
+                );
+              })
             ) : (
               <li className="px-4 py-3 text-sm text-gray-500 text-center">No options found</li>
             )}

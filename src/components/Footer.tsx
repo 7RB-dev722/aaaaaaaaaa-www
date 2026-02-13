@@ -16,13 +16,8 @@ const Footer = () => {
   }, [clickCount]);
 
   const handleSecretClick = () => {
-    const newCount = clickCount + 1;
-    if (newCount >= 7) {
-      navigate('/admin');
-      setClickCount(0);
-    } else {
-      setClickCount(newCount);
-    }
+    // Hidden admin access disabled as requested
+    return;
   };
 
   return (
@@ -59,6 +54,9 @@ const Footer = () => {
               <li><a href="/" className="hover:text-cyan-400 transition-colors">Home</a></li>
               <li><a href="#products" className="hover:text-cyan-400 transition-colors">Products</a></li>
               <li><a href="/winning-photos" className="hover:text-cyan-400 transition-colors">Winning Gallery</a></li>
+              <li><a href="/privacy" className="hover:text-cyan-400 transition-colors">Privacy Policy</a></li>
+              <li><a href="/terms" className="hover:text-cyan-400 transition-colors">Terms & Conditions</a></li>
+              <li><a href="/refund" className="hover:text-cyan-400 transition-colors">Refund Policy</a></li>
               <li><a href={settings.discord_url} className="hover:text-cyan-400 transition-colors">Support</a></li>
             </ul>
           </div>
@@ -99,16 +97,11 @@ const Footer = () => {
 
         <div className="border-t border-white/5 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
           <p 
-            className="text-slate-500 text-sm cursor-pointer select-none hover:text-slate-400 transition-colors"
-            onClick={handleSecretClick}
+            className="text-slate-500 text-sm select-none"
             title="©"
           >
-            {settings.footer_copyright || '© 2025 Cheatloop. All rights reserved.'} LQb-tWC-Ok3-
+            {settings.footer_copyright || '© 2025 Cheatloop. All rights reserved.'}
           </p>
-          <div className="flex items-center space-x-6 text-sm text-slate-500">
-            <span className="hover:text-white cursor-pointer transition-colors">Privacy Policy</span>
-            <span className="hover:text-white cursor-pointer transition-colors">Terms of Service</span>
-          </div>
         </div>
       </div>
     </footer>

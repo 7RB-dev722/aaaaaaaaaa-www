@@ -1,0 +1,25 @@
+{
+  "invoice_id": "CH-12345",
+  "date": "2026-02-12",
+  "billed_to": {
+    "name": "John Doe",
+    "email": "john@example.com",
+    "country": "United States"
+  },
+  "items": [
+    {
+      "product": "Cheatloop Premium",
+      "quantity": 1,
+      "price": 29.99,
+      "total": 29.99
+    }
+  ],
+  "total": 29.99,
+  "license_key": "XXXX-XXXX-XXXX-XXXX",
+  "company": {
+    "name": "Cheatloop Team",
+    "logo_url": "https://pbs.twimg.com/profile_images/1385934218421755904/D-yD2dpn_400x400.jpg",
+    "support_email": "support@cheatloop.com"
+  },
+  "footer_notes": "Thank you for your business."
+}

@@ -107,6 +107,13 @@ export interface ProductKey {
   purchase_intent_id: string | null;
 }
 
+export interface VerifiedUser {
+  id: string;
+  username: string;
+  product_type: string;
+  created_at?: string;
+}
+
 export interface LocalPaymentMethod {
   id: string;
   country: string;
@@ -663,6 +670,51 @@ export const productKeysService = {
     const { error } = await supabase.from('product_keys').delete().eq('id', id);
     if (error) throw new Error(`Failed to delete key: ${error.message}`);
   },
+};
+
+export const verifiedUserService = {
+  async getAll(): Promise<VerifiedUser[]> {
+    if (!supabase) throw new Error('Supabase not configured');
+    const { data, error } = await supabase
+      .from('verified_users')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) throw new Error(`Failed to fetch verified users: ${error.message}`);
+    return data || [];
+  },
+
+  async add(username: string, product_type: string): Promise<VerifiedUser> {
+    if (!supabase) throw new Error('Supabase not configured');
+    const { data, error } = await supabase
+      .from('verified_users')
+      .insert([{ username, product_type }])
+      .select()
+      .single();
+    if (error) throw new Error(`Failed to add verified user: ${error.message}`);
+    return data;
+  },
+
+  async delete(id: string): Promise<void> {
+    if (!supabase) throw new Error('Supabase not configured');
+    const { error } = await supabase.from('verified_users').delete().eq('id', id);
+    if (error) throw new Error(`Failed to delete verified user: ${error.message}`);
+  },
+
+  async checkVerification(username: string, _product_type: string): Promise<boolean> {
+    if (!supabase) throw new Error('Supabase not configured');
+    // إذا كان المستخدم يمتلك أي توثيق، فإنه مسموح له بشراء أي شيء
+    // البحث غير حساس لحالة الأحرف (ilike) للتساهل مع المستخدم
+    const { data, error } = await supabase
+      .from('verified_users')
+      .select('id')
+      .ilike('username', username)
+      .maybeSingle();
+    if (error) {
+      console.error('Error checking verification:', error);
+      return false;
+    }
+    return !!data;
+  }
 };
 
 export const localPaymentService = {

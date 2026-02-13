@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Save, UploadCloud, Globe, MessageCircle, Phone, Layout, Shield, Zap, Target, Image as ImageIcon, Type, ExternalLink } from 'lucide-react';
+import { Save, UploadCloud, Globe, MessageCircle, Phone, Layout, Shield, Zap, Target, Image as ImageIcon, Type, ExternalLink, FileText, Mail } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface SiteContentEditorProps {
@@ -185,7 +185,13 @@ const SiteContentEditor: React.FC<SiteContentEditorProps> = ({ settings, onSetti
                 </SectionWrapper>
 
                 {/* Contact Links */}
-                <SectionWrapper title="روابط التواصل" icon={MessageCircle}>
+                <SectionWrapper title="روابط التواصل والمتجر" icon={MessageCircle}>
+                    <InputField 
+                        label="رابط المتجر (Shop URL)" 
+                        value={settings.shop_url} 
+                        onChange={(val) => handleChange('shop_url', val)} 
+                        placeholder="https://cheatloop.shop" 
+                    />
                     <InputField 
                         label="رابط ديسكورد" 
                         value={settings.discord_url} 
@@ -292,6 +298,47 @@ const SiteContentEditor: React.FC<SiteContentEditorProps> = ({ settings, onSetti
                         label="ملاحظة بطاقة المنتج" 
                         value={settings.product_card_note} 
                         onChange={(val) => handleChange('product_card_note', val)} 
+                    />
+                </SectionWrapper>
+
+                {/* Policies Section */}
+                <SectionWrapper title="السياسات والخصوصية" icon={FileText}>
+                    <TextAreaField 
+                        label="سياسة الخصوصية (Privacy Policy)" 
+                        value={settings.privacy_policy || ''} 
+                        onChange={(val) => handleChange('privacy_policy', val)} 
+                        rows={10}
+                        placeholder="أدخل نص سياسة الخصوصية هنا..."
+                    />
+                    <TextAreaField 
+                        label="شروط الخدمة (Terms of Service)" 
+                        value={settings.terms_of_service || ''} 
+                        onChange={(val) => handleChange('terms_of_service', val)} 
+                        rows={10}
+                        placeholder="أدخل نص شروط الخدمة هنا..."
+                    />
+                </SectionWrapper>
+
+                {/* Brevo Integration */}
+                <SectionWrapper title="إعدادات نظام بريفو (Brevo)" icon={Mail}>
+                    <InputField 
+                        label="Brevo API Key" 
+                        value={settings.brevo_api_key || ''} 
+                        onChange={(val) => handleChange('brevo_api_key', val)} 
+                        placeholder="xsmtpsib-..."
+                        type="password"
+                    />
+                    <InputField 
+                        label="Sender Email" 
+                        value={settings.brevo_sender_email || ''} 
+                        onChange={(val) => handleChange('brevo_sender_email', val)} 
+                        placeholder="support@yourdomain.com"
+                    />
+                    <InputField 
+                        label="Sender Name" 
+                        value={settings.brevo_sender_name || ''} 
+                        onChange={(val) => handleChange('brevo_sender_name', val)} 
+                        placeholder="Cheatloop Team"
                     />
                 </SectionWrapper>
             </div>

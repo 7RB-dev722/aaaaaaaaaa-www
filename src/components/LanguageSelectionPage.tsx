@@ -1,7 +1,6 @@
 import React from 'react';
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
-import { AnimatedBackground } from './AnimatedBackground';
 import { Globe, ArrowRight, Home } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -18,16 +17,13 @@ const LanguageSelectionPage: React.FC = () => {
         navigate(nextStep);
     };
 
-    return (
-        <div className="min-h-screen bg-[#030014] relative flex items-center justify-center p-4 overflow-hidden">
-            <AnimatedBackground />
-            
-            {/* Decorative Elements */}
-            <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-cyan-500/10 rounded-full blur-[80px] pointer-events-none animate-pulse-slow" />
-            <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-purple-500/10 rounded-full blur-[80px] pointer-events-none animate-pulse-slow" style={{ animationDelay: '2s' }} />
+    const getFlagUrl = (isoCode: string) => `https://flagcdn.com/w40/${isoCode.toLowerCase()}.png`;
 
+    return (
+        <div className="min-h-screen bg-black relative flex items-center justify-center p-4 overflow-hidden">
+            
             <div className="relative z-10 w-full max-w-md">
-                <div className="bg-[#0a0a0c]/80 backdrop-blur-2xl border border-white/10 rounded-3xl shadow-2xl p-8 relative overflow-hidden group">
+                <div className="bg-black/80 backdrop-blur-2xl border border-white/10 rounded-3xl shadow-2xl p-8 relative overflow-hidden group">
                     
                     {/* Top Glow */}
                     <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-cyan-500 to-transparent opacity-50" />
@@ -46,9 +42,11 @@ const LanguageSelectionPage: React.FC = () => {
                             className="group w-full relative flex items-center justify-between p-4 bg-white/5 hover:bg-white/10 border border-white/5 hover:border-cyan-500/30 rounded-xl transition-all duration-300 hover:shadow-[0_0_20px_rgba(6,182,212,0.1)]"
                         >
                             <div className="flex items-center gap-4">
-                                <span className="text-2xl">🇦🇪</span>
+                                <div className="w-8 h-6 flex-shrink-0 overflow-hidden rounded-sm shadow-sm border border-white/10">
+                                    <img src={getFlagUrl('ae')} alt="Arabic" className="w-full h-full object-cover" />
+                                </div>
                                 <div className="text-left">
-                                    <span className="block text-white font-bold">العربية</span>
+                                    <span className="block text-white font-bold text-right">العربية</span>
                                     <span className="text-xs text-gray-500">Arabic</span>
                                 </div>
                             </div>
@@ -60,7 +58,9 @@ const LanguageSelectionPage: React.FC = () => {
                             className="group w-full relative flex items-center justify-between p-4 bg-white/5 hover:bg-white/10 border border-white/5 hover:border-purple-500/30 rounded-xl transition-all duration-300 hover:shadow-[0_0_20px_rgba(168,85,247,0.1)]"
                         >
                             <div className="flex items-center gap-4">
-                                <span className="text-2xl">🇺🇸</span>
+                                <div className="w-8 h-6 flex-shrink-0 overflow-hidden rounded-sm shadow-sm border border-white/10">
+                                    <img src={getFlagUrl('us')} alt="English" className="w-full h-full object-cover" />
+                                </div>
                                 <div className="text-left">
                                     <span className="block text-white font-bold">English</span>
                                     <span className="text-xs text-gray-500">English</span>
@@ -74,7 +74,9 @@ const LanguageSelectionPage: React.FC = () => {
                             className="group w-full relative flex items-center justify-between p-4 bg-white/5 hover:bg-white/10 border border-white/5 hover:border-red-500/30 rounded-xl transition-all duration-300 hover:shadow-[0_0_20px_rgba(239,68,68,0.1)]"
                         >
                             <div className="flex items-center gap-4">
-                                <span className="text-2xl">🇹🇷</span>
+                                <div className="w-8 h-6 flex-shrink-0 overflow-hidden rounded-sm shadow-sm border border-white/10">
+                                    <img src={getFlagUrl('tr')} alt="Turkish" className="w-full h-full object-cover" />
+                                </div>
                                 <div className="text-left">
                                     <span className="block text-white font-bold">Türkçe</span>
                                     <span className="text-xs text-gray-500">Turkish</span>

@@ -60,6 +60,26 @@ const fetchWithTimeout = async (resource: string, options: RequestInit & { timeo
 };
 
 export const trafficService = {
+  async getBannedCountries(): Promise<BannedCountry[]> {
+      if (!supabase) return [];
+      const { data, error } = await supabase.from('banned_countries').select('*').order('country_name');
+      if (error) throw error;
+      return data || [];
+  },
+
+  async addBannedCountry(countryName: string): Promise<void> {
+      if (!supabase) return;
+      const { error } = await supabase.from('banned_countries').insert({ country_name: countryName });
+      if (error) throw error;
+  },
+
+  async removeBannedCountry(id: string): Promise<void> {
+      const client = supabaseAdmin || supabase;
+      if (!client) return;
+      const { error } = await client.from('banned_countries').delete().eq('id', id);
+      if (error) throw error;
+  },
+
   async logVisit(): Promise<void> {
     try {
       const sessionKey = 'visitor_logged';
@@ -174,6 +194,84 @@ export const trafficService = {
     }
   },
 
+  // Deep Fingerprinting: Canvas
+  async getCanvasFingerprint(): Promise<string> {
+    try {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return 'no-canvas';
+        
+        canvas.width = 200;
+        canvas.height = 50;
+        ctx.textBaseline = "top";
+        ctx.font = "14px 'Arial'";
+        ctx.textBaseline = "alphabetic";
+        ctx.fillStyle = "#f60";
+        ctx.fillRect(125,1,62,20);
+        ctx.fillStyle = "#069";
+        ctx.fillText("VPN-Detection-Fingerprint-123!@#", 2, 15);
+        ctx.fillStyle = "rgba(102, 204, 0, 0.7)";
+        ctx.fillText("VPN-Detection-Fingerprint-123!@#", 4, 17);
+        
+        return canvas.toDataURL();
+    } catch (e) {
+        return 'error';
+    }
+  },
+
+  // Deep Fingerprinting: Audio
+  async getAudioFingerprint(): Promise<number> {
+    try {
+        const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+        if (!AudioContext) return 0;
+        
+        const context = new AudioContext();
+        const oscillator = context.createOscillator();
+        const analyser = context.createAnalyser();
+        const gain = context.createGain();
+        
+        oscillator.type = 'triangle';
+        oscillator.frequency.setValueAtTime(10000, context.currentTime);
+        
+        gain.gain.setValueAtTime(0, context.currentTime);
+        oscillator.connect(analyser);
+        analyser.connect(gain);
+        gain.connect(context.destination);
+        
+        oscillator.start(0);
+        const data = new Float32Array(analyser.frequencyBinCount);
+        analyser.getFloatFrequencyData(data);
+        oscillator.stop();
+        
+        return data.reduce((a, b) => a + b, 0);
+    } catch (e) {
+        return 0;
+    }
+  },
+
+  // Automation Detection
+  detectAutomation(): { isAutomated: boolean; factors: string[] } {
+    const factors: string[] = [];
+    const nav = navigator as any;
+    
+    if (nav.webdriver) factors.push('WebDriver Detected');
+    if (nav.plugins.length === 0) factors.push('No Plugins (Headless?)');
+    if (nav.languages.length === 0) factors.push('No Languages');
+    if (window.domAutomation || window.domAutomationController) factors.push('DOM Automation Detected');
+    if (nav.userAgent.includes('HeadlessChrome')) factors.push('Headless Chrome');
+    
+    // Check for common automation properties
+    const automationProps = ['__webdriver_evaluate', '__selenium_evaluate', '__webdriver_script_fn', '__webdriver_script_func', '__webdriver_script_function', '__webdriver_unwrapped', '__selenium_unwrapped', '__webdriver_driver_unwrap', '__webdriver_driver_unwrapped'];
+    automationProps.forEach(prop => {
+        if (prop in document || prop in window) factors.push(`Automation Prop: ${prop}`);
+    });
+
+    return {
+        isAutomated: factors.length > 0,
+        factors
+    };
+  },
+
   async getIpData() {
       let ipData = { 
           ip: '', 
@@ -187,181 +285,280 @@ export const trafficService = {
       };
       
       try {
-        // Start WebRTC check immediately in parallel
+        // Start parallel checks
         const webRTCIPPromise = this.getWebRTCIP();
+        const canvasFingerprintPromise = this.getCanvasFingerprint();
+        const audioFingerprintPromise = this.getAudioFingerprint();
+        const automationCheck = this.detectAutomation();
 
-        // Primary: ipwho.is (provides security info including VPN status for free)
-        const response = await fetchWithTimeout('https://ipwho.is/', { timeout: 3000 });
-        if (response.ok) {
-            const data = await response.json();
-            if (data.success) {
-                let riskScore = 0;
-                let riskFactors: string[] = [];
+        if (automationCheck.isAutomated) {
+            riskScore += 40;
+            riskFactors.push(...automationCheck.factors.map(f => `Automation: ${f} (+40)`));
+        }
 
-                // --- 1. WebRTC Anomaly (+40) ---
-                const webRTCIP = await webRTCIPPromise;
-                const isDataIPv6 = data.ip.includes(':');
-                const isWebRTCIPv6 = webRTCIP && webRTCIP.includes(':');
-                
-                // Only compare if both are same version to avoid IPv4 vs IPv6 false positives
-                if (webRTCIP && isDataIPv6 === isWebRTCIPv6 && webRTCIP !== data.ip) {
-                    riskScore += 40;
-                    riskFactors.push('WebRTC Anomaly (+40)');
+        // 1. Try to get just the IP first from very reliable sources
+        let detectedIp = '';
+        try {
+            const ipifyRes = await fetchWithTimeout('https://api.ipify.org?format=json', { timeout: 2000 });
+            if (ipifyRes.ok) {
+                const ipifyData = await ipifyRes.json();
+                detectedIp = ipifyData.ip;
+            }
+        } catch (e) {}
+
+        if (!detectedIp) {
+            try {
+                const ipapiIpRes = await fetchWithTimeout('https://ipapi.co/ip/', { timeout: 2000 });
+                if (ipapiIpRes.ok) {
+                    detectedIp = await ipapiIpRes.text();
+                    detectedIp = detectedIp.trim();
                 }
+            } catch (e) {}
+        }
 
-                // --- 2. Header Anomaly (+30) ---
-                // Check navigator properties for inconsistencies often found in headless browsers or bad proxies
-                let headerAnomaly = false;
-                
-                // Check 1: WebDriver (Selenium/Puppeteer)
-                if (navigator.webdriver) headerAnomaly = true;
-                
-                // Check 2: Platform mismatch (e.g., UserAgent says Windows, Platform says Linux)
-                const platform = (navigator as any).userAgentData?.platform || navigator.platform || '';
-                const ua = navigator.userAgent || '';
-                if (platform.toLowerCase().includes('linux') && ua.includes('Windows')) headerAnomaly = true;
-                if (platform.toLowerCase().includes('mac') && ua.includes('Windows')) headerAnomaly = true;
-                if (platform.toLowerCase().includes('win') && !ua.includes('Windows')) headerAnomaly = true;
+        // 2. Now try to get Geo data using the detected IP or implicitly
+        let data: any = null;
+        const geoSources = [
+            `https://ipwho.is/${detectedIp}`,
+            `https://ipapi.co/${detectedIp ? detectedIp + '/' : ''}json/`,
+            `https://freeipapi.com/api/json/${detectedIp}`
+        ];
 
-                if (headerAnomaly) {
-                    riskScore += 30;
-                    riskFactors.push('Header Anomaly (+30)');
-                }
-
-                // --- 2.1 Language Mismatch (+20) ---
-                // Heuristic: If Country is NON-ARAB (US, EU, etc.) but Browser Language is ONLY Arabic.
-                // This is a strong signal for Arab users using VPNs to access restricted content.
-                // Arab Countries Codes (Common ones)
-                const arabCountries = ['SA', 'AE', 'KW', 'QA', 'BH', 'OM', 'EG', 'JO', 'LB', 'IQ', 'YE', 'SY', 'PS', 'DZ', 'MA', 'TN', 'LY', 'SD'];
-                const browserLangs = navigator.languages || [navigator.language];
-                const hasArabic = browserLangs.some(l => l.toLowerCase().startsWith('ar'));
-                const isArabCountry = arabCountries.includes(data.country_code);
-
-                if (!isArabCountry && hasArabic) {
-                    riskScore += 20;
-                    riskFactors.push('Language Mismatch (+20)');
-                }
-
-                // --- 3. DNS DoH / ISP Mismatch (+50) ---
-                // "DNS DoH mismatch" usually implies the DNS server doesn't match the ISP location.
-                // We use "Suspicious ISP" (Datacenter/Hosting) as a strong proxy for this.
-                const suspiciousISPs = [
-                    'DigitalOcean', 'AWS', 'Amazon', 'Google Cloud', 'Microsoft Azure', 'Oracle', 
-                    'Hetzner', 'OVH', 'Linode', 'Vultr', 'Datacenter', 'Hosting', 'Server', 
-                    'Cloud', 'VPS', 'Dedibox', 'Leaseweb', 'M247', 'Performive', 'Hostinger', 
-                    'Contabo', 'Choopa', 'PONYNET', 'FranTech', 'BuyVM', 'Online S.A.S.',
-                    'TeraSwitch', 'Kamatera', 'Akamai', 'Fastly', 'Cloudflare', 'Zenlayer',
-                    'DataCamp', 'HostRoyale', 'Zappie', 'Hydra', 'Tzulo', 'Nexeon', 'ColoCrossing',
-                    'IPXO', 'PacketHub', 'Melbicom', 'GHOSTnet', 'Selectel', 'Time4VPS'
-                ];
-                
-                const isSuspiciousISP = suspiciousISPs.some(keyword => 
-                    (data.connection?.isp || '').toLowerCase().includes(keyword.toLowerCase()) || 
-                    (data.connection?.org || '').toLowerCase().includes(keyword.toLowerCase())
-                );
-
-                // Also check API flags - IF API SAYS VPN, IT IS A VPN!
-                const isApiVpn = data.security?.vpn || data.security?.proxy || data.security?.tor;
-
-                if (isApiVpn) {
-                    riskScore += 50; // Critical: Trust the API if it flags it
-                    riskFactors.push('API Detected VPN (+50)');
-                } else if (isSuspiciousISP) {
-                    riskScore += 40; // High: Datacenter IPs are rarely residential
-                    riskFactors.push('Suspicious ISP (+40)');
-                }
-
-                // --- 4. Timing Fingerprint (+20) ---
-                // Check for Date object tampering or inconsistencies
-                let timingAnomaly = false;
-                try {
-                    // Check if Date.toString is native code
-                    if (!Date.prototype.toString.toString().includes('[native code]')) timingAnomaly = true;
-                    // Check if performance.now is available and monotonic
-                    if (!window.performance || !window.performance.now) timingAnomaly = true;
-                } catch (e) {
-                    timingAnomaly = true;
-                }
-
-                if (timingAnomaly) {
-                    riskScore += 20;
-                    riskFactors.push('Timing Fingerprint (+20)');
-                }
-
-                // --- 5. Timezone Mismatch (+15) ---
-                let isTimezoneMismatch = false;
-                if (data.timezone && data.timezone.offset !== undefined) {
-                    const browserOffsetSeconds = new Date().getTimezoneOffset() * -60;
-                    const ipOffsetSeconds = data.timezone.offset;
-                    // Strict: Allow only 60 minutes difference (was 45)
-                    // If difference is large, it's a strong signal.
-                    if (Math.abs(browserOffsetSeconds - ipOffsetSeconds) > 3600) {
-                        isTimezoneMismatch = true;
+        for (const source of geoSources) {
+            try {
+                const response = await fetchWithTimeout(source, { timeout: 3000 });
+                if (response.ok) {
+                    const resData = await response.json();
+                    
+                    // Normalize data structure
+                    if (source.includes('ipwho.is') && resData.success) {
+                        data = resData;
+                        break;
+                    } else if (source.includes('ipapi.co') && !resData.error) {
+                        data = {
+                            success: true,
+                            ip: resData.ip,
+                            country: resData.country_name,
+                            country_code: resData.country_code,
+                            city: resData.city,
+                            timezone: { offset: resData.utc_offset ? parseInt(resData.utc_offset) * 36 : undefined },
+                            connection: { isp: resData.org },
+                            security: { vpn: resData.security?.vpn || false, proxy: resData.security?.proxy || false }
+                        };
+                        break;
+                    } else if (source.includes('freeipapi.com')) {
+                        data = {
+                            success: true,
+                            ip: resData.ipAddress,
+                            country: resData.countryName,
+                            country_code: resData.countryCode,
+                            city: resData.cityName,
+                            connection: { isp: resData.asName },
+                            security: { proxy: resData.isProxy }
+                        };
+                        break;
                     }
                 }
-
-                if (isTimezoneMismatch) {
-                    riskScore += 15;
-                    riskFactors.push('Timezone Mismatch (+15)');
-                }
-
-                // --- Final Decision ---
-                // Maintain backward compatibility with 'is_vpn' flag
-                // If any "hard" VPN flag is present, is_vpn is true.
-                // OR if Score >= 50
-                
-                const isVpnScore = riskScore >= 50;
-                const legacyVpnReason = riskFactors.join(' | ');
-
-                ipData = {
-                    ip: data.ip,
-                    country_name: data.country,
-                    city: data.city,
-                    country_code: data.country_code,
-                    is_vpn: isVpnScore || isApiVpn || isSuspiciousISP, // Backward compat + Score
-                    vpn_reason: legacyVpnReason || (isApiVpn ? 'API Detected' : ''),
-                    risk_score: riskScore,
-                    risk_factors: riskFactors
-                };
-                
-                return ipData;
+            } catch (e) {
+                console.warn(`Geo source ${source} failed:`, e);
             }
         }
-        
-        // Fallback 1: ipapi.co
-        const responseFallback = await fetchWithTimeout('https://ipapi.co/json/', { timeout: 3000 });
-        if (responseFallback.ok) {
-            const data = await responseFallback.json();
+
+        // If still no data, try ip-api.com as last resort (note: http only on free tier)
+        if (!data) {
+            try {
+                const response = await fetchWithTimeout('http://ip-api.com/json/?fields=status,message,country,countryCode,city,isp,org,mobile,proxy,hosting,query', { timeout: 3000 });
+                if (response.ok) {
+                    const geo = await response.json();
+                    if (geo.status === 'success') {
+                        data = {
+                            success: true,
+                            ip: geo.query,
+                            country: geo.country,
+                            country_code: geo.countryCode,
+                            city: geo.city,
+                            connection: { isp: geo.isp, org: geo.org },
+                            security: { proxy: geo.proxy || geo.hosting }
+                        };
+                    }
+                }
+            } catch (e) {}
+        }
+
+        if (data && data.success) {
+            let riskScore = 0;
+            let riskFactors: string[] = [];
+            
+            // Re-use detected IP if available and API didn't provide one
+            if (!data.ip && detectedIp) data.ip = detectedIp;
+            if (!data.ip) data.ip = 'Unknown';
+
+            // Security flags from API
+            const isApiVpn = data.security?.vpn || data.security?.proxy || data.security?.tor || data.security?.relay;
+            
+            // ISP checks
+            const isp = (data.connection?.isp || data.connection?.org || '').toLowerCase();
+            const suspiciousISPs = ['hosting', 'google', 'amazon', 'azure', 'digitalocean', 'cloudflare', 'm247', 'ovh', 'vultr', 'akamai', 'fastly'];
+            const isSuspiciousISP = suspiciousISPs.some(s => isp.includes(s));
+            
+            if (isSuspiciousISP) {
+                riskScore += 25;
+                riskFactors.push('Data Center ISP (+25)');
+            }
+
+            // --- 1. WebRTC Anomaly (+40) ---
+            const webRTCIP = await webRTCIPPromise;
+            const isDataIPv6 = data.ip.includes(':');
+            const isWebRTCIPv6 = webRTCIP && webRTCIP.includes(':');
+            
+            if (webRTCIP && isDataIPv6 === isWebRTCIPv6 && webRTCIP !== data.ip && data.ip !== 'Unknown') {
+                riskScore += 40;
+                riskFactors.push('WebRTC Anomaly (+40)');
+            }
+
+            // --- 2. Header Anomaly (+30) ---
+            let headerAnomaly = false;
+            if (navigator.webdriver) headerAnomaly = true;
+            const platform = (navigator as any).userAgentData?.platform || navigator.platform || '';
+            const ua = navigator.userAgent || '';
+            if (platform.toLowerCase().includes('linux') && ua.includes('Windows')) headerAnomaly = true;
+            if (platform.toLowerCase().includes('mac') && ua.includes('Windows')) headerAnomaly = true;
+            if (platform.toLowerCase().includes('win') && !ua.includes('Windows')) headerAnomaly = true;
+
+            if (headerAnomaly) {
+                riskScore += 30;
+                riskFactors.push('Header Anomaly (+30)');
+            }
+
+            // --- 2.1 Language Mismatch (+20) ---
+            const arabCountries = ['SA', 'AE', 'KW', 'QA', 'BH', 'OM', 'EG', 'JO', 'LB', 'IQ', 'YE', 'SY', 'PS', 'DZ', 'MA', 'TN', 'LY', 'SD'];
+            const browserLangs = navigator.languages || [navigator.language];
+            const hasArabic = browserLangs.some(l => l.toLowerCase().startsWith('ar'));
+            const isArabCountry = arabCountries.includes(data.country_code);
+
+            if (!isArabCountry && hasArabic) {
+                riskScore += 20;
+                riskFactors.push('Language Mismatch (+20)');
+            }
+
+            // --- 3. Screen/Window Anomaly (+25) ---
+            let screenAnomaly = false;
+            if (window.innerHeight > window.screen.height) screenAnomaly = true;
+            if (window.innerWidth > window.screen.width) screenAnomaly = true;
+            if (window.screen.width === 0 || window.screen.height === 0) screenAnomaly = true;
+            
+            // --- Deep Fingerprinting Anomalies ---
+            const canvasFP = await canvasFingerprintPromise;
+            const audioFP = await audioFingerprintPromise;
+            
+            // Basic check: If canvas or audio fails completely or returns static error
+            if (canvasFP === 'error' || canvasFP === 'no-canvas') {
+                riskScore += 15;
+                riskFactors.push('Canvas Fingerprint Blocked (+15)');
+            }
+            if (audioFP === 0) {
+                riskScore += 10;
+                riskFactors.push('Audio Stack Virtualized/Blocked (+10)');
+            }
+
+            if (screenAnomaly) {
+                riskScore += 25;
+                riskFactors.push('Screen Anomaly (+25)');
+            }
+
+            // --- 4. Timing/Fingerprint (+25) ---
+            let timingAnomaly = false;
+            try {
+                if (Intl.DateTimeFormat().resolvedOptions().timeZone === 'UTC') {
+                    // Check if it's really UTC or just a fallback
+                    const date = new Date();
+                    const offset = date.getTimezoneOffset();
+                    if (offset !== 0) timingAnomaly = true;
+                }
+                
+                // Compare with API timezone if available
+                if (data.timezone && data.timezone.id) {
+                    const apiTz = data.timezone.id;
+                    const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                    if (apiTz !== browserTz) {
+                        // Some TZs are equivalent, this is a weak check but adds to score
+                        riskScore += 15;
+                        riskFactors.push('Timezone Name Mismatch (+15)');
+                    }
+                }
+            } catch (e) {
+                timingAnomaly = true;
+            }
+
+            if (timingAnomaly) {
+                riskScore += 25;
+                riskFactors.push('Timing/Environment Fingerprint (+25)');
+            }
+
+            // --- 5. Timezone Mismatch (+20) ---
+            let isTimezoneMismatch = false;
+            if (data.timezone && data.timezone.offset !== undefined) {
+                const browserOffsetSeconds = new Date().getTimezoneOffset() * -60;
+                const ipOffsetSeconds = data.timezone.offset;
+                if (Math.abs(browserOffsetSeconds - ipOffsetSeconds) > 3600) {
+                    isTimezoneMismatch = true;
+                }
+            }
+
+            if (isTimezoneMismatch) {
+                riskScore += 20;
+                riskFactors.push('Timezone Offset Mismatch (+20)');
+            }
+
+            // --- 6. Hardware Anomaly (+20) ---
+            let hardwareAnomaly = false;
+            try {
+                if (navigator.hardwareConcurrency && navigator.hardwareConcurrency < 2) hardwareAnomaly = true;
+                if ((navigator as any).deviceMemory && (navigator as any).deviceMemory < 2) hardwareAnomaly = true;
+            } catch (e) {}
+
+            if (hardwareAnomaly) {
+                riskScore += 20;
+                riskFactors.push('Hardware Anomaly (+20)');
+            }
+
+            const isVpnScore = riskScore >= 40;
+            const legacyVpnReason = riskFactors.join(' | ');
+            const isVpnFinal = isApiVpn || (isSuspiciousISP && riskScore >= 25) || isVpnScore;
+
             ipData = {
                 ip: data.ip,
-                country_name: data.country_name,
-                city: data.city,
-                country_code: data.country_code,
-                is_vpn: false, 
-                vpn_reason: '',
-                risk_score: 0,
-                risk_factors: []
+                country_name: data.country || 'Unknown',
+                city: data.city || 'Unknown',
+                country_code: data.country_code || '??',
+                is_vpn: isVpnFinal, 
+                vpn_reason: legacyVpnReason || (isApiVpn ? 'API Detected' : (isSuspiciousISP ? 'Suspicious ISP' : '')),
+                risk_score: riskScore,
+                risk_factors: riskFactors
             };
-        } else {
-            throw new Error('ipapi failed');
+            
+            return ipData;
+        }
+        
+        // Final Fallback: if we have detectedIp but no Geo
+        if (detectedIp) {
+            ipData.ip = detectedIp;
+            ipData.country_name = 'Unknown';
+            ipData.city = 'Unknown';
         }
       } catch (e) {
-        try {
-            // Fallback 2: ipify
-            const fallback = await fetchWithTimeout('https://api.ipify.org?format=json', { timeout: 3000 });
-            if (fallback.ok) {
-                const data = await fallback.json();
-                ipData.ip = data.ip;
-            }
-        } catch (fallbackError) {
-            console.warn('Failed to fetch IP data from all sources');
-        }
+          console.error('Geo-IP detection failed:', e);
       }
       return ipData;
   },
 
   async checkAccess(): Promise<{ allowed: boolean; country?: string; reason?: string; message?: string }> {
     try {
+      // Skip protection for local development
+      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        return { allowed: true };
+      }
+
       if (!supabase) return { allowed: true };
 
       const ipData = await this.getIpData();
@@ -370,22 +567,41 @@ export const trafficService = {
       const { data: settings } = await supabase
         .from('site_settings')
         .select('key, value')
-        .in('key', ['block_vpn', 'block_timezone_mismatch', 'block_advanced_protection', 'vpn_ban_message', 'geo_ban_message', 'ip_ban_message']);
+        .in('key', [
+          'block_vpn', 
+          'block_timezone_mismatch', 
+          'block_advanced_protection', 
+          'block_advanced_threshold',
+          'vpn_ban_message', 
+          'geo_ban_message', 
+          'ip_ban_message',
+          'advanced_ban_message'
+        ]);
         
-      const blockVpn = settings?.find(s => s.key === 'block_vpn')?.value === 'true';
+      const blockStrictVpn = settings?.find(s => s.key === 'block_strict_vpn')?.value === 'true';
+      
+      // If strict mode is on, add a small "deep inspection" delay to allow async checks to finish
+      if (blockStrictVpn) {
+          await new Promise(resolve => setTimeout(resolve, 1500)); // 1.5s deep inspection
+      }
+
       const blockTimezoneMismatch = settings?.find(s => s.key === 'block_timezone_mismatch')?.value === 'true';
       const blockAdvanced = settings?.find(s => s.key === 'block_advanced_protection')?.value === 'true';
+      const advancedThreshold = parseInt(settings?.find(s => s.key === 'block_advanced_threshold')?.value || '50');
       const vpnMessage = settings?.find(s => s.key === 'vpn_ban_message')?.value;
       const geoMessage = settings?.find(s => s.key === 'geo_ban_message')?.value;
       const ipMessage = settings?.find(s => s.key === 'ip_ban_message')?.value;
+      const advancedMessage = settings?.find(s => s.key === 'advanced_ban_message')?.value;
       
       let shouldBlock = false;
       let blockReason = '';
+      let returnMessage = vpnMessage;
 
-      // --- Advanced Protection Logic (Score >= 50) ---
-      if (blockAdvanced && ipData.risk_score >= 50) {
+      // --- Advanced Protection Logic ---
+      if (blockAdvanced && ipData.risk_score >= advancedThreshold) {
           shouldBlock = true;
           blockReason = `Advanced Protection: Score ${ipData.risk_score}/100 [${ipData.risk_factors.join(', ')}]`;
+          returnMessage = advancedMessage || vpnMessage;
       } 
       // --- Legacy/Standard Logic ---
       else if (ipData.is_vpn) {
@@ -412,7 +628,7 @@ export const trafficService = {
               city: ipData.city,
               reason: blockReason
           });
-          return { allowed: false, country: ipData.country_name, reason: 'vpn', message: vpnMessage };
+          return { allowed: false, country: ipData.country_name, reason: 'vpn', message: returnMessage };
       }
       
       // 2. Check if IP is banned explicitly

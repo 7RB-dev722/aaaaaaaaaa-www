@@ -8,8 +8,9 @@ import {
   MessageSquare, ExternalLink, FileText, KeyRound, Clock, Search, Filter, 
   TimerOff, Copy, Calendar, Bell, BellRing, BarChart3, ChevronDown, 
   AlertTriangle, ShoppingCart, Menu, ChevronRight, ChevronLeft, ImagePlus, UserPlus,
-  ArrowLeft, ArrowRightLeft, Laptop, Smartphone, Globe, LogIn, ShieldCheck, Check, Banknote,
-  Repeat, MapPin, Download, History, User, XCircle, CheckCircle2, Crown, Sparkles, Activity, Trophy, MessageCircle, Ban, Video
+  ArrowLeft, ArrowRightLeft, Laptop, Smartphone, Globe, LogIn, ShieldCheck, ShieldAlert, Check, Banknote,
+  Repeat, MapPin, Download, History, User, XCircle, CheckCircle2, Crown, Sparkles, Activity, Trophy, MessageCircle, Ban, Video,
+  DollarSign, Image, ListPlus
 } from 'lucide-react';
 import { 
   productService, categoryService, winningPhotosService, settingsService, 
@@ -28,6 +29,7 @@ import ProductKeysManager from './ProductKeysManager';
 import ProductKeyStats from './ProductKeyStats';
 import ProductMigrationTracker from './ProductMigrationTracker';
 import UserManagement from './UserManagement';
+import VerifiedUserManagement from './VerifiedUserManagement';
 import LocalPaymentManager from './LocalPaymentManager';
 import InvoiceTemplate, { InvoiceTheme } from './InvoiceTemplate';
 import { TopPurchasersModal } from './TopPurchasersModal';
@@ -53,6 +55,10 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { DiscordTools } from './DiscordTools';
+
+import { moneyMotionService } from '../lib/moneyMotionService';
+import { MoneyMotionManager } from './MoneyMotionManager';
+import { brevoService } from '../lib/brevoService';
 
 // --- Helper Functions ---
 function urlBase64ToUint8Array(base64String: string) {
@@ -102,7 +108,7 @@ const AVAILABLE_IMAGES = [
 
 const WINNING_PHOTO_PRODUCTS = ['Cheatloop PUBG', 'Cheatloop CODM', 'Sinki'];
 
-type AdminTab = 'dashboard' | 'products' | 'categories' | 'photos' | 'purchase-images' | 'purchase-intents' | 'content' | 'settings' | 'invoice-templates' | 'keys' | 'key-stats' | 'migrations' | 'users' | 'expired-keys' | 'local-payments' | 'discord-tools' | 'bans' | 'videos' | 'security-logs';
+type AdminTab = 'dashboard' | 'products' | 'categories' | 'photos' | 'purchase-images' | 'purchase-intents' | 'content' | 'settings' | 'invoice-templates' | 'keys' | 'key-stats' | 'migrations' | 'users' | 'verified-users' | 'expired-keys' | 'local-payments' | 'discord-tools' | 'bans' | 'videos' | 'security-logs' | 'moneymotion' | 'traffic';
 
 // Grouped Menu Structure for Sidebar
 const MENU_GROUPS = [
@@ -113,6 +119,12 @@ const MENU_GROUPS = [
       { id: 'traffic', label: 'الزيارات', icon: Activity },
       { id: 'key-stats', label: 'الإحصائيات', icon: BarChart3 },
       { id: 'migrations', label: 'تحركات المشتركين', icon: ArrowRightLeft },
+    ]
+  },
+  {
+    title: 'بوابة الدفع (MoneyMotion)',
+    items: [
+      { id: 'moneymotion', label: 'إدارة MoneyMotion', icon: CreditCard },
     ]
   },
   {
@@ -145,6 +157,7 @@ const MENU_GROUPS = [
     title: 'النظام',
     items: [
       { id: 'users', label: 'المستخدمين', icon: Users },
+      { id: 'verified-users', label: 'الزبائن الموثقين', icon: ShieldCheck },
       { id: 'bans', label: 'نظام الحظر', icon: Ban },
       { id: 'security-logs', label: 'سجل الحظر', icon: ShieldCheck },
       { id: 'discord-tools', label: 'أدوات ديسكورد', icon: MessageSquare },
@@ -192,7 +205,14 @@ const SortableProductRow = ({ product, onEdit, onDelete, onToggleVisibility, get
                     <span className="font-bold text-white">{product.title}</span>
                 </div>
             </td>
-            <td className="p-4 font-mono text-cyan-400 font-bold">${product.price}</td>
+            <td className="p-4">
+                <div className="flex flex-col">
+                    <span className="font-mono text-cyan-400 font-bold">${product.price}</span>
+                    {product.payment_gateway_tax > 0 && (
+                        <span className="text-[10px] text-yellow-500 font-bold">+{product.payment_gateway_tax}% ضريبة</span>
+                    )}
+                </div>
+            </td>
             <td className="p-4"><span className="bg-black px-2 py-1 rounded text-xs text-gray-400 border border-white/10">{getCategoryName(product.category_id)}</span></td>
             <td className="p-4 text-center">
                 {product.is_hidden ? <span className="text-xs font-bold text-red-400 bg-red-500/10 px-2 py-1 rounded border border-red-500/20">مخفي</span> : <span className="text-xs font-bold text-green-400 bg-green-500/10 px-2 py-1 rounded border border-green-500/20">نشط</span>}
@@ -322,6 +342,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   const [purchaseIntentSearchTerm, setPurchaseIntentSearchTerm] = useState('');
   const [selectedInvoiceTheme, setSelectedInvoiceTheme] = useState<string>('navy');
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>(typeof Notification !== 'undefined' ? Notification.permission : 'default');
+  const [showCountrySelector, setShowCountrySelector] = useState(false);
+  const [countrySearchTerm, setCountrySearchTerm] = useState('');
   
   // Subscription States
   const [subscriptionFilter, setSubscriptionFilter] = useState<{ productId: string; targetDate: string; searchTerm: string; viewMode: 'list' | 'grouped' }>({ productId: 'all', targetDate: '', searchTerm: '', viewMode: 'list' });
@@ -338,7 +360,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
 
   const [isCreatingIntent, setIsCreatingIntent] = useState(false);
   const [newIntentData, setNewIntentData] = useState({ productId: '', email: '', country: '' });
-  const [newProduct, setNewProduct] = useState<Omit<Product, 'id' | 'created_at' | 'updated_at'>>({ title: '', price: 0, features: [''], description: '', buy_link: '', alternative_links: [], image: '', video_link: '', video_url: '', is_popular: false, category: 'pubg', category_id: '', is_hidden: false, purchase_image_id: null });
+  const [newProduct, setNewProduct] = useState<Omit<Product, 'id' | 'created_at' | 'updated_at'>>({ title: '', price: 0, features: [''], description: '', buy_link: '', alternative_links: [], image: '', video_link: '', video_url: '', is_popular: false, category: 'pubg', category_id: '', is_hidden: false, purchase_image_id: null, masked_name: '', masked_domain: '', purchase_method: 'gateway' });
   const [newWinningPhotos, setNewWinningPhotos] = useState<{ files: File[]; productName: string; description: string }>({ files: [], productName: WINNING_PHOTO_PRODUCTS[0], description: '' });
   const [imageUploadFile, setImageUploadFile] = useState<File | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
@@ -487,6 +509,46 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   const [selectedProductsForVideo, setSelectedProductsForVideo] = useState<string[]>([]);
   const [videoToAssign, setVideoToAssign] = useState<VideoLibraryItem | null>(null);
   const [showAssignVideoModal, setShowAssignVideoModal] = useState(false);
+  const [sendingBrevo, setSendingBrevo] = useState<string | null>(null);
+
+  const handleSendBrevoEmail = async (intent: PurchaseIntent, customKey?: string) => {
+    setSendingBrevo(intent.id);
+    try {
+      const product = products.find(p => p.id === intent.product_id);
+      // Find associated key for this intent if no custom key provided
+      const finalKey = customKey || productKeys.find(k => k.purchase_intent_id === intent.id)?.key_value || 'قيد الانتظار';
+      
+      const isSinki = intent.product_title.toLowerCase().includes('sinki');
+      const brand = isSinki ? 'sinki' : 'cheatloop';
+      const template = invoiceTemplates.find(t => t.brand_name === brand);
+      
+      const logoUrl = template?.logo_url || (isSinki 
+        ? 'https://cheatloop.shop/sinki.jpg' 
+        : 'https://cheatloop.shop/cheatloop.png');
+
+      await brevoService.sendInvoiceEmail({
+        customer_name: intent.email.split('@')[0],
+        customer_email: intent.email,
+        amount: typeof product?.price === 'number' ? product.price : 0,
+        product_name: intent.product_title,
+        order_id: intent.id.slice(0, 8),
+        country: intent.country || 'Unknown',
+        license_key: finalKey,
+        discord_url: settings.discord_url,
+        shop_url: settings.shop_url,
+        logo_url: logoUrl,
+        bg_color: template?.bg_color || '#f3f4f6',
+        text_color: template?.text_color || '#111827',
+        footer_notes: template?.footer_notes || 'Thank you for your business.'
+      });
+      setSuccess('تم إرسال الفاتورة عبر Brevo بنجاح');
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err: any) {
+      setError(`فشل إرسال البريد عبر Brevo: ${err.message}`);
+    } finally {
+      setSendingBrevo(null);
+    }
+  };
   const [newVideo, setNewVideo] = useState<{ title: string; file: File | null; thumbnail: string }>({ title: '', file: null, thumbnail: '' });
   const videoFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -990,10 +1052,23 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   };
 
   const handleProductSubmit = async (isUpdate: boolean) => {
-    if (!newProduct.title || !newProduct.price || (!newProduct.buy_link && !newProduct.purchase_image_id) || !newProduct.category_id) {
-        setError('Please fill all required fields: Name, Price, Category, and either a Buy Link or a Purchase Image.');
+    const { title, price, category_id, purchase_method, buy_link, purchase_image_id } = newProduct;
+    
+    if (!title || !price || !category_id) {
+        setError('Please fill all required fields: Name, Price, and Category.');
         return;
     }
+
+    if (purchase_method === 'external' && !buy_link) {
+        setError('Please fill all required fields: Name, Price, Category, and a Buy Link.');
+        return;
+    }
+
+    if (purchase_method === 'qr' && !purchase_image_id) {
+        setError('Please fill all required fields: Name, Price, Category, and a Purchase Image.');
+        return;
+    }
+
     try {
         setSaving(true);
         setError(null);
@@ -1023,9 +1098,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
             image: imageUrl,
             video_url: videoUrl,
             features: newProduct.features.filter(f => f.trim() !== ''),
-            buy_link: newProduct.purchase_image_id ? '' : newProduct.buy_link,
-            purchase_image_id: newProduct.buy_link ? null : newProduct.purchase_image_id,
-            alternative_links: newProduct.alternative_links || []
+            buy_link: purchase_method === 'external' ? buy_link : '',
+            purchase_image_id: purchase_method === 'qr' ? purchase_image_id : null,
+            alternative_links: purchase_method === 'external' ? (newProduct.alternative_links || []) : []
         };
 
         if (isUpdate) {
@@ -1052,8 +1127,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   const handleAddProduct = () => handleProductSubmit(false);
   const handleUpdateProduct = () => handleProductSubmit(true);
   const handleDeleteProduct = async (id: string) => { if (!confirm('Are you sure you want to delete this product?')) return; try { setSaving(true); setError(null); await productService.deleteProduct(id); await loadData(); setSuccess('Product deleted successfully.'); setTimeout(() => setSuccess(null), 3000); } catch (err: any) { console.error('Error deleting product:', err); setError(err.message || 'Failed to delete product.'); } finally { setSaving(false); } };
-  const handleEditProduct = (product: Product) => { setEditingProduct(product.id); resetProductForm(); setNewProduct({ title: product.title, price: product.price, features: product.features, description: product.description, buy_link: product.buy_link, alternative_links: product.alternative_links || [], image: product.image || '', video_link: product.video_link || '', video_url: product.video_url || '', is_popular: product.is_popular || false, category: product.category, category_id: product.category_id || '', is_hidden: product.is_hidden || false, purchase_image_id: product.purchase_image_id || null }); };
-  const resetProductForm = () => { setNewProduct({ title: '', price: 0, features: [''], description: '', buy_link: '', alternative_links: [], image: '', video_link: '', video_url: '', is_popular: false, category: 'pubg', category_id: '', is_hidden: false, purchase_image_id: null }); setImageUploadFile(null); setImagePreviewUrl(null); setVideoUploadFile(null); setVideoPreviewUrl(null); if (productImageInputRef.current) productImageInputRef.current.value = ''; if (productVideoInputRef.current) productVideoInputRef.current.value = ''; };
+  const handleEditProduct = (product: Product) => { setEditingProduct(product.id); resetProductForm(); setNewProduct({ title: product.title, price: product.price, features: product.features, description: product.description, buy_link: product.buy_link, alternative_links: product.alternative_links || [], image: product.image || '', video_link: product.video_link || '', video_url: product.video_url || '', is_popular: product.is_popular || false, category: product.category, category_id: product.category_id || '', is_hidden: product.is_hidden || false, purchase_image_id: product.purchase_image_id || null, masked_name: product.masked_name || '', masked_domain: product.masked_domain || '',
+      payment_gateway_tax: product.payment_gateway_tax || 0,
+      purchase_method: product.purchase_method || (product.purchase_image_id ? 'qr' : product.buy_link ? 'external' : 'gateway')
+    });
+  };
+  const resetProductForm = () => { setNewProduct({ title: '', price: 0, features: [''], description: '', buy_link: '', alternative_links: [], image: '', video_link: '', video_url: '', is_popular: false, category: 'pubg', category_id: '', is_hidden: false, purchase_image_id: null, masked_name: '', masked_domain: '',
+      payment_gateway_tax: 0,
+      purchase_method: 'gateway'
+    });
+    setImageUploadFile(null); setImagePreviewUrl(null); setVideoUploadFile(null); setVideoPreviewUrl(null); if (productImageInputRef.current) productImageInputRef.current.value = ''; if (productVideoInputRef.current) productVideoInputRef.current.value = ''; };
   const addFeature = () => setNewProduct({ ...newProduct, features: [...newProduct.features, ''] });
   const updateFeature = (index: number, value: string) => { const updatedFeatures = [...newProduct.features]; updatedFeatures[index] = value; setNewProduct({ ...newProduct, features: updatedFeatures }); };
   const removeFeature = (index: number) => { const updatedFeatures = newProduct.features.filter((_, i) => i !== index); setNewProduct({ ...newProduct, features: updatedFeatures }); };
@@ -1119,7 +1202,41 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   const getFilteredImages = () => selectedImageCategory === 'all' ? AVAILABLE_IMAGES : AVAILABLE_IMAGES.filter(img => img.category === selectedImageCategory);
   const groupedWinningPhotos = WINNING_PHOTO_PRODUCTS.reduce((acc, productName) => { acc[productName] = winningPhotos.filter(p => p.product_name === productName); return acc; }, {} as Record<string, WinningPhoto[]>);
   const getProductForIntent = (intent: PurchaseIntent | null) => { if (!intent) return undefined; return products.find(p => p.id === intent.product_id); };
-  const generateInvoiceHTML = (intent: PurchaseIntent, key: string) => { if (!intent) return ''; const productForIntent = getProductForIntent(intent); const brand = productForIntent?.title.toLowerCase().includes('sinki') ? 'sinki' : 'cheatloop'; const template = invoiceTemplates.find(t => t.brand_name === brand); const theme = INVOICE_THEMES[selectedInvoiceTheme]; const html = ReactDOMServer.renderToStaticMarkup( <InvoiceTemplate intent={intent} productKey={key} siteSettings={siteSettings} productPrice={productForIntent ? productForIntent.price : 'N/A'} templateData={template} theme={theme} /> ); return `<!DOCTYPE html>${html}`; };
+  const generateInvoiceHTML = (intent: PurchaseIntent, key: string) => { 
+    if (!intent) return ''; 
+    const productForIntent = getProductForIntent(intent); 
+    const isSinki = intent.product_title.toLowerCase().includes('sinki');
+    const brand = isSinki ? 'sinki' : 'cheatloop'; 
+    const template = invoiceTemplates.find(t => t.brand_name === brand); 
+    
+    // Use current origin for preview to ensure images load
+    const currentOrigin = window.location.origin;
+    const defaultLogo = isSinki ? `${currentOrigin}/sinki.jpg` : `${currentOrigin}/cheatloop.png`;
+
+    // Ensure template has the correct logo if missing
+    const enrichedTemplate = template ? {
+      ...template,
+      logo_url: template.logo_url || defaultLogo
+    } : {
+      brand_name: brand,
+      logo_url: defaultLogo,
+      company_name: isSinki ? 'Sinki' : 'Cheatloop',
+      footer_notes: 'Thank you for your business.',
+      bg_color: '#f3f4f6',
+      text_color: '#111827'
+    } as any;
+
+    const html = ReactDOMServer.renderToStaticMarkup( 
+      <InvoiceTemplate 
+        intent={intent} 
+        productKey={key} 
+        siteSettings={siteSettings} 
+        productPrice={productForIntent ? productForIntent.price : 'N/A'} 
+        templateData={enrichedTemplate} 
+      /> 
+    ); 
+    return `<!DOCTYPE html>${html}`; 
+  };
   const handleInternalPrint = () => { if (iframeRef.current?.contentWindow) { iframeRef.current.contentWindow.print(); } else { setError("Could not access the invoice content for printing."); } setShowPrintOptions(false); };
   const handleExternalPrint = () => { if (!invoiceModalIntent || !productKeyForInvoice) { setError("Please enter or draw a product key first."); return; } const invoiceHTML = generateInvoiceHTML(invoiceModalIntent, productKeyForInvoice); const printWindow = window.open('', '_blank'); if (printWindow) { printWindow.document.write(invoiceHTML); printWindow.document.close(); printWindow.focus(); } else { setError("Could not open new window. Please check your browser's popup blocker settings."); } setShowPrintOptions(false); };
   const handleUseManualKey = async () => { if (!invoiceModalIntent || !productKeyForInvoice) { setError("Please enter a product key first."); return; } setIsUsingManualKey(true); setError(null); setManualKeyError(null); try { await productKeysService.useManualKey( invoiceModalIntent.product_id, productKeyForInvoice, invoiceModalIntent.email, invoiceModalIntent.id ); setSuccess('Key has been successfully processed!'); await loadData(); setTimeout(() => setSuccess(null), 3000); } catch (err: any) { if (err.message.includes('This key has already been used')) { setManualKeyError('هذا المفتاح مستخدم بالفعل.'); } else { setError(err.message); } } finally { setIsUsingManualKey(false); } };
@@ -1401,7 +1518,7 @@ ${intent.phone_number ? `${intent.phone_number}\n` : ''}${intent.country}
 
         {/* Content Area */}
         <main className="flex-1 overflow-y-auto p-4 md:p-8 scrollbar-thin scrollbar-thumb-white/10">
-          <div className="max-w-7xl mx-auto space-y-6">
+          <div className={`${activeTab === 'invoice-templates' ? 'max-w-full px-4' : 'max-w-7xl'} mx-auto space-y-6`}>
             
             {/* Alerts */}
             {success && (
@@ -1745,32 +1862,158 @@ ${intent.phone_number ? `${intent.phone_number}\n` : ''}${intent.country}
                               />
                           </div>
 
-                          {/* Advanced Protection System */}
-                          <div className="flex items-center justify-between p-4 bg-black/30 rounded-xl border border-white/5">
-                              <div>
-                                  <h4 className="font-bold text-white text-sm">نظام الحماية المتقدم (Heuristic)</h4>
-                                  <p className="text-xs text-gray-500 mt-1">حظر بناءً على النقاط (Score &ge; 50): WebRTC, Headers, DNS, Timing</p>
+                          {/* Strict VPN Protection (Military Grade) */}
+                          <div className="flex flex-col gap-4 p-4 bg-black/30 rounded-xl border border-white/5">
+                              <div className="flex items-center justify-between">
+                                  <div>
+                                      <h4 className="font-bold text-white text-sm">حظر VPN و البروكسي (الوضع الصارم)</h4>
+                                      <p className="text-xs text-gray-500 mt-1">حماية عسكرية تمنع حتى الـ VPN المدفوع عبر تحليل ISP و ASN و MTU</p>
+                                  </div>
+                                  <ModernCheckbox 
+                                      checked={siteSettings.block_strict_vpn === 'true'} 
+                                      onChange={async () => {
+                                          try {
+                                              const newValue = siteSettings.block_strict_vpn === 'true' ? 'false' : 'true';
+                                              await settingsService.updateSettings([{ key: 'block_strict_vpn', value: newValue }]);
+                                              await refreshSettings();
+                                              setSuccess('تم تحديث وضع الحظر الصارم بنجاح');
+                                              setTimeout(() => setSuccess(null), 3000);
+                                          } catch (err) {
+                                              console.error(err);
+                                              setError('فشل تحديث الإعدادات');
+                                          }
+                                      }} 
+                                      id="block-strict-vpn-toggle"
+                                  />
                               </div>
-                              <ModernCheckbox 
-                                  checked={siteSettings.block_advanced_protection === 'true'} 
-                                  onChange={async () => {
-                                      try {
-                                          const newValue = siteSettings.block_advanced_protection === 'true' ? 'false' : 'true';
-                                          await settingsService.updateSettings([{ key: 'block_advanced_protection', value: newValue }]);
-                                          await refreshSettings();
-                                          setSuccess('تم تحديث نظام الحماية المتقدم بنجاح');
-                                          setTimeout(() => setSuccess(null), 3000);
-                                      } catch (err) {
-                                          console.error(err);
-                                          setError('فشل تحديث الإعدادات');
-                                      }
-                                  }} 
-                                  id="block-advanced-toggle"
-                              />
+
+                              {siteSettings.block_strict_vpn === 'true' && (
+                                  <div className="space-y-4 pt-4 border-t border-white/5">
+                                      <div>
+                                          <label className="block text-sm font-bold text-red-400 mb-2">رسالة حظر الـ VPN الصارم</label>
+                                          <textarea
+                                              value={settings.strict_vpn_message !== undefined ? settings.strict_vpn_message : (siteSettings.strict_vpn_message || '')}
+                                              onChange={(e) => {
+                                                  setSettings({ ...settings, strict_vpn_message: e.target.value });
+                                              }}
+                                              className="w-full bg-black/50 border border-red-500/10 rounded-xl p-3 text-white text-sm focus:border-red-500 transition-colors min-h-[80px]"
+                                              placeholder="أدخل رسالة الحظر التي ستظهر لمستخدمي الـ VPN في الوضع الصارم..."
+                                          />
+                                          <div className="mt-2 flex justify-end">
+                                              <button 
+                                                  onClick={async () => {
+                                                      try {
+                                                          await settingsService.updateSettings([{ key: 'strict_vpn_message', value: settings.strict_vpn_message || siteSettings.strict_vpn_message }]);
+                                                          await refreshSettings();
+                                                          setSuccess('تم حفظ رسالة الحظر الصارم');
+                                                          setTimeout(() => setSuccess(null), 3000);
+                                                      } catch (err) {
+                                                          setError('فشل حفظ الرسالة');
+                                                      }
+                                                  }}
+                                                  className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors"
+                                              >
+                                                  حفظ الرسالة
+                                              </button>
+                                          </div>
+                                      </div>
+                                  </div>
+                              )}
+                          </div>
+
+                          {/* Advanced Protection System */}
+                          <div className="flex flex-col gap-4 p-4 bg-black/30 rounded-xl border border-white/5">
+                              <div className="flex items-center justify-between">
+                                  <div>
+                                      <h4 className="font-bold text-white text-sm">نظام الحماية المتقدم (Heuristic)</h4>
+                                      <p className="text-xs text-gray-500 mt-1">حظر بناءً على النقاط المخاطرة: WebRTC, Headers, DNS, Timing</p>
+                                  </div>
+                                  <ModernCheckbox 
+                                      checked={siteSettings.block_advanced_protection === 'true'} 
+                                      onChange={async () => {
+                                          try {
+                                              const newValue = siteSettings.block_advanced_protection === 'true' ? 'false' : 'true';
+                                              await settingsService.updateSettings([{ key: 'block_advanced_protection', value: newValue }]);
+                                              await refreshSettings();
+                                              setSuccess('تم تحديث نظام الحماية المتقدم بنجاح');
+                                              setTimeout(() => setSuccess(null), 3000);
+                                          } catch (err) {
+                                              console.error(err);
+                                              setError('فشل تحديث الإعدادات');
+                                          }
+                                      }} 
+                                      id="block-advanced-toggle"
+                                  />
+                              </div>
+
+                              {siteSettings.block_advanced_protection === 'true' && (
+                                  <div className="space-y-4 pt-4 border-t border-white/5">
+                                      <div>
+                                          <label className="block text-xs font-bold text-gray-400 mb-2">حد النقاط للحظر (Threshold: 0-100)</label>
+                                          <div className="flex gap-2">
+                                              <input 
+                                                  type="number"
+                                                  min="0"
+                                                  max="100"
+                                                  value={settings.block_advanced_threshold !== undefined ? settings.block_advanced_threshold : (siteSettings.block_advanced_threshold || '50')}
+                                                  onChange={(e) => {
+                                                      setSettings({ ...settings, block_advanced_threshold: e.target.value });
+                                                  }}
+                                                  className="w-24 bg-black/50 border border-white/10 rounded-lg p-2 text-white text-sm focus:border-cyan-500 outline-none"
+                                              />
+                                              <button 
+                                                  onClick={async () => {
+                                                      try {
+                                                          await settingsService.updateSettings([{ key: 'block_advanced_threshold', value: settings.block_advanced_threshold || siteSettings.block_advanced_threshold || '50' }]);
+                                                          await refreshSettings();
+                                                          setSuccess('تم حفظ حد النقاط بنجاح');
+                                                          setTimeout(() => setSuccess(null), 3000);
+                                                      } catch (err) {
+                                                          setError('فشل حفظ الإعدادات');
+                                                      }
+                                                  }}
+                                                  className="bg-cyan-600/20 hover:bg-cyan-600/40 text-cyan-400 px-3 py-1 rounded-lg text-xs font-bold transition-colors border border-cyan-500/20"
+                                              >
+                                                  حفظ
+                                              </button>
+                                          </div>
+                                          <p className="text-[10px] text-gray-500 mt-1">القيمة الافتراضية هي 50. كلما انخفض الرقم، زادت صرامة الحظر.</p>
+                                      </div>
+
+                                      <div>
+                                          <label className="block text-sm font-bold text-white mb-2">رسالة الحظر المتقدم (Advanced Protection)</label>
+                                          <textarea
+                                              value={settings.advanced_ban_message !== undefined ? settings.advanced_ban_message : (siteSettings.advanced_ban_message || '')}
+                                              onChange={(e) => {
+                                                  setSettings({ ...settings, advanced_ban_message: e.target.value });
+                                              }}
+                                              className="w-full bg-black/50 border border-white/10 rounded-xl p-3 text-white text-sm focus:border-cyan-500 transition-colors min-h-[80px]"
+                                              placeholder="أدخل رسالة الحظر التي ستظهر للمستخدمين المكتشفين بنظام الحماية المتقدم..."
+                                          />
+                                          <div className="mt-2 flex justify-end">
+                                              <button 
+                                                  onClick={async () => {
+                                                      try {
+                                                          await settingsService.updateSettings([{ key: 'advanced_ban_message', value: settings.advanced_ban_message || siteSettings.advanced_ban_message }]);
+                                                          await refreshSettings();
+                                                          setSuccess('تم حفظ رسالة الحظر المتقدم');
+                                                          setTimeout(() => setSuccess(null), 3000);
+                                                      } catch (err) {
+                                                          setError('فشل حفظ الرسالة');
+                                                      }
+                                                  }}
+                                                  className="bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors"
+                                              >
+                                                  حفظ الرسالة
+                                              </button>
+                                          </div>
+                                      </div>
+                                  </div>
+                              )}
                           </div>
 
                           {siteSettings.block_vpn === 'true' && (
-                              <div className="bg-black/30 rounded-xl border border-white/5 p-4">
+                              <div className="bg-black/30 rounded-xl border border-white/5 p-4 mt-4">
                                   <label className="block text-sm font-bold text-white mb-2">رسالة الحظر (VPN/Proxy)</label>
                                   <div className="flex gap-2">
                                       <textarea
@@ -1846,13 +2089,56 @@ ${intent.phone_number ? `${intent.phone_number}\n` : ''}${intent.country}
 
                           {/* Add Ban UI */}
                           <div className="flex gap-2 mb-6">
-                              <input 
-                                  type="text" 
-                                  value={newBanCountry}
-                                  onChange={(e) => setNewBanCountry(e.target.value)}
-                                  placeholder="أدخل اسم الدولة..."
-                                  className="flex-1 bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-red-500/50 transition-colors"
-                              />
+                              <div className="relative flex-1">
+                                  <button 
+                                      onClick={() => setShowCountrySelector(!showCountrySelector)}
+                                      className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white text-right flex items-center justify-between hover:border-red-500/50 transition-colors"
+                                  >
+                                      <span className={newBanCountry ? 'text-white' : 'text-gray-500'}>
+                                          {newBanCountry || "اختر دولة من القائمة..."}
+                                      </span>
+                                      <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${showCountrySelector ? 'rotate-180' : ''}`} />
+                                  </button>
+
+                                  {showCountrySelector && (
+                                      <div className="absolute bottom-full mb-2 left-0 right-0 bg-slate-900 border border-white/10 rounded-xl shadow-2xl z-[100] overflow-hidden animate-fade-in">
+                                          <div className="p-2 border-b border-white/10 bg-black/20">
+                                              <div className="relative">
+                                                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                                                  <input 
+                                                      type="text" 
+                                                      value={countrySearchTerm}
+                                                      onChange={(e) => setCountrySearchTerm(e.target.value)}
+                                                      placeholder="بحث عن دولة..."
+                                                      className="w-full bg-black/40 border border-white/10 rounded-lg py-2 pl-9 pr-3 text-sm text-white focus:border-cyan-500 outline-none"
+                                                      autoFocus
+                                                  />
+                                              </div>
+                                          </div>
+                                          <div className="max-h-[250px] overflow-y-auto custom-scrollbar p-1">
+                                              {countries
+                                                  .filter(c => c.name.toLowerCase().includes(countrySearchTerm.toLowerCase()))
+                                                  .map((country) => (
+                                                      <button
+                                                          key={country.iso}
+                                                          onClick={() => {
+                                                              setNewBanCountry(country.name);
+                                                              setShowCountrySelector(false);
+                                                          }}
+                                                          className="w-full text-right px-4 py-2.5 text-sm text-gray-300 hover:bg-white/5 hover:text-white rounded-lg transition-colors flex items-center justify-between group"
+                                                      >
+                                                          <span className="font-mono text-[10px] text-gray-600 group-hover:text-gray-400">{country.iso}</span>
+                                                          <span>{country.name}</span>
+                                                      </button>
+                                                  ))
+                                              }
+                                              {countries.filter(c => c.name.toLowerCase().includes(countrySearchTerm.toLowerCase())).length === 0 && (
+                                                  <div className="p-4 text-center text-gray-500 text-xs italic">لا توجد نتائج</div>
+                                              )}
+                                          </div>
+                                      </div>
+                                  )}
+                              </div>
                               <button 
                                   onClick={handleBanCountry}
                                   disabled={!newBanCountry}
@@ -2067,7 +2353,9 @@ ${intent.phone_number ? `${intent.phone_number}\n` : ''}${intent.country}
             )}
 
             {activeTab === 'users' && <UserManagement />}
+            {activeTab === 'verified-users' && <VerifiedUserManagement />}
             {activeTab === 'discord-tools' && <DiscordTools />}
+            {activeTab === 'moneymotion' && <MoneyMotionManager />}
             {activeTab === 'keys' && <ProductKeysManager products={products} keys={productKeys} onKeysUpdate={loadData} saving={saving} setSaving={setSaving} setError={setError} setSuccess={setSuccess} />}
             {activeTab === 'key-stats' && <ProductKeyStats products={products} keys={productKeys} purchaseIntents={purchaseIntents} />}
             {activeTab === 'migrations' && <ProductMigrationTracker keys={productKeys} products={products} />}
@@ -2413,7 +2701,7 @@ ${intent.phone_number ? `${intent.phone_number}\n` : ''}${intent.country}
             )}
 
             {activeTab === 'content' && <SiteContentEditor settings={settings} onSettingsChange={setSettings} onSave={handleSaveSettings} saving={saving} setSaving={setSaving} setError={setError} setSuccess={setSuccess} />}
-            {activeTab === 'invoice-templates' && <InvoiceEditor />}
+            {activeTab === 'invoice-templates' && <InvoiceEditor onSaveSuccess={loadData} />}
             
             {/* Purchase Intents Tab */}
             {activeTab === 'purchase-intents' && (
@@ -2556,6 +2844,18 @@ ${intent.phone_number ? `${intent.phone_number}\n` : ''}${intent.country}
                                                         >
                                                             <MessageCircle className="w-3 h-3" />
                                                         </button>
+                                                        <button 
+                                                            onClick={() => handleSendBrevoEmail(intent)}
+                                                            disabled={sendingBrevo === intent.id}
+                                                            className="text-gray-400 hover:text-blue-400 transition-colors disabled:opacity-50"
+                                                            title="إرسال الفاتورة عبر Brevo"
+                                                        >
+                                                            {sendingBrevo === intent.id ? (
+                                                                <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                                            ) : (
+                                                                <Mail className="w-3 h-3" />
+                                                            )}
+                                                        </button>
                                                     </div>
                                                 </div>
                                             </div>
@@ -2578,6 +2878,19 @@ ${intent.phone_number ? `${intent.phone_number}\n` : ''}${intent.country}
                                             >
                                                 <Send className="w-4 h-4" />
                                                 إرسال الفاتورة
+                                            </button>
+                                            <button 
+                                                onClick={() => handleSendBrevoEmail(intent)}
+                                                disabled={sendingBrevo === intent.id}
+                                                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-blue-500/20 transition-all disabled:opacity-50"
+                                                title="إرسال الفاتورة عبر Brevo"
+                                            >
+                                                {sendingBrevo === intent.id ? (
+                                                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                                ) : (
+                                                    <Mail className="w-4 h-4" />
+                                                )}
+                                                إرسال Brevo
                                             </button>
                                             </>
                                         )}
@@ -2987,129 +3300,256 @@ ${intent.phone_number ? `${intent.phone_number}\n` : ''}${intent.country}
                               <h3 className="text-xl font-bold text-white">{editingProduct ? 'تعديل المنتج' : 'إضافة منتج جديد'}</h3>
                               <button onClick={() => { setIsAddingProduct(false); setEditingProduct(null); }} className="text-gray-400 hover:text-white"><X className="w-6 h-6" /></button>
                           </div>
-                          <div className="grid md:grid-cols-2 gap-6">
-                              <div><label className="block text-xs font-bold text-gray-400 mb-2">اسم المنتج</label><input type="text" value={newProduct.title} onChange={e => setNewProduct({...newProduct, title: e.target.value})} className="w-full p-3 bg-black border border-white/10 rounded-xl text-white focus:border-cyan-500 focus:outline-none" /></div>
-                              <div><label className="block text-xs font-bold text-gray-400 mb-2">السعر ($)</label><input type="number" value={newProduct.price} onChange={e => setNewProduct({...newProduct, price: Number(e.target.value)})} className="w-full p-3 bg-black border border-white/10 rounded-xl text-white focus:border-cyan-500 focus:outline-none" /></div>
-                              <div className="md:col-span-2"><label className="block text-xs font-bold text-gray-400 mb-2">القسم</label><select value={newProduct.category_id} onChange={e => handleCategoryChange(e.target.value)} className="w-full p-3 bg-black border border-white/10 rounded-xl text-white focus:border-cyan-500 focus:outline-none"><option value="">اختر القسم</option>{categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
-                              <div className="md:col-span-2"><label className="block text-xs font-bold text-gray-400 mb-2">الوصف</label><textarea rows={3} value={newProduct.description} onChange={e => setNewProduct({...newProduct, description: e.target.value})} className="w-full p-3 bg-black border border-white/10 rounded-xl text-white focus:border-cyan-500 focus:outline-none" /></div>
-                              
-                              <div className="md:col-span-2 border-t border-white/10 pt-4">
-                                  <label className="block text-xs font-bold text-gray-400 mb-2">طريقة الشراء</label>
-                                  <div className="flex gap-4 mb-4">
-                                      <button onClick={() => setNewProduct({...newProduct, purchase_image_id: null})} className={`flex-1 py-2 rounded-lg border text-sm font-bold transition-all ${newProduct.purchase_image_id === null ? 'bg-cyan-600 border-cyan-600 text-white' : 'border-white/10 text-gray-400'}`}>رابط خارجي</button>
-                                      <button onClick={() => setNewProduct({...newProduct, buy_link: '', purchase_image_id: ''})} className={`flex-1 py-2 rounded-lg border text-sm font-bold transition-all ${newProduct.purchase_image_id !== null ? 'bg-purple-600 border-purple-600 text-white' : 'border-white/10 text-gray-400'}`}>صورة QR</button>
-                                  </div>
-                                  {newProduct.purchase_image_id === null ? (
-                                      <div className="space-y-4">
-                                          <div>
-                                              <label className="block text-xs font-bold text-gray-500 mb-1">الرابط الأساسي</label>
-                                              <input type="url" value={newProduct.buy_link} onChange={e => setNewProduct({...newProduct, buy_link: e.target.value})} className="w-full p-3 bg-black border border-white/10 rounded-xl text-white focus:border-cyan-500 focus:outline-none" placeholder="https://..." />
-                                          </div>
-                                          
-                                          {/* Alternative Links Section */}
-                                          <div className="bg-black/30 p-4 rounded-xl border border-white/5">
-                                              <div className="flex justify-between items-center mb-3">
-                                                  <label className="block text-xs font-bold text-gray-400">روابط إضافية (اختياري)</label>
-                                                  <button onClick={addAlternativeLink} className="text-xs bg-cyan-600/20 text-cyan-400 hover:bg-cyan-600/30 px-2 py-1 rounded flex items-center gap-1 transition-colors">
-                                                      <Plus className="w-3 h-3" /> إضافة رابط
-                                                  </button>
-                                              </div>
-                                              
-                                              {newProduct.alternative_links && newProduct.alternative_links.length > 0 ? (
-                                                  <div className="space-y-3">
-                                                      {newProduct.alternative_links.map((link, idx) => (
-                                                          <div key={idx} className="flex gap-2 items-start">
-                                                              <div className="flex-1 space-y-2">
-                                                                  <input 
-                                                                      type="text" 
-                                                                      placeholder="تسمية الرابط (مثال: رابط احتياطي)" 
-                                                                      value={link.label}
-                                                                      onChange={(e) => updateAlternativeLink(idx, 'label', e.target.value)}
-                                                                      className="w-full p-2 bg-black border border-white/10 rounded-lg text-white text-sm focus:border-cyan-500 focus:outline-none"
-                                                                  />
-                                                                  <input 
-                                                                      type="url" 
-                                                                      placeholder="https://..." 
-                                                                      value={link.url}
-                                                                      onChange={(e) => updateAlternativeLink(idx, 'url', e.target.value)}
-                                                                      className="w-full p-2 bg-black border border-white/10 rounded-lg text-white text-sm focus:border-cyan-500 focus:outline-none"
-                                                                  />
-                                                              </div>
-                                                              <button onClick={() => removeAlternativeLink(idx)} className="p-2 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg mt-1">
-                                                                  <Trash2 className="w-4 h-4" />
-                                                              </button>
-                                                          </div>
-                                                      ))}
-                                                  </div>
-                                              ) : (
-                                                  <p className="text-xs text-gray-500 text-center py-2">لا توجد روابط إضافية</p>
-                                              )}
-                                          </div>
+                          <div className="space-y-8">
+                              {/* القسم 1: المعلومات الأساسية */}
+                              <div className="bg-white/5 rounded-2xl border border-white/10 p-6 space-y-6">
+                                  <div className="flex items-center gap-3 border-b border-white/10 pb-4">
+                                      <div className="p-2 bg-cyan-500/10 rounded-lg">
+                                          <Package className="w-5 h-5 text-cyan-400" />
                                       </div>
-                                  ) : (
-                                      <select value={newProduct.purchase_image_id || ''} onChange={e => setNewProduct({...newProduct, purchase_image_id: e.target.value})} className="w-full p-3 bg-black border border-white/10 rounded-xl text-white focus:border-cyan-500 focus:outline-none"><option value="">اختر صورة الدفع</option>{purchaseImages.map(img => <option key={img.id} value={img.id}>{img.name}</option>)}</select>
-                                  )}
-                              </div>
-
-                              <div className="md:col-span-2 border-t border-white/10 pt-4">
-                                  <label className="block text-xs font-bold text-gray-400 mb-2">صورة المنتج</label>
-                                  <div className="flex items-center gap-4">
-                                      <div className="w-20 h-20 bg-black rounded-xl border border-white/10 flex items-center justify-center overflow-hidden">{imagePreviewUrl || newProduct.image ? <img src={imagePreviewUrl || newProduct.image} className="w-full h-full object-cover" /> : <Package className="w-8 h-8 text-gray-600" />}</div>
-                                      <div className="space-y-2">
-                                          <div className="flex gap-2">
-                                              <button onClick={() => productImageInputRef.current?.click()} className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-xs font-bold">رفع صورة</button>
-                                              <button onClick={() => setShowImageSelector(true)} className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-xs font-bold">من المكتبة</button>
-                                          </div>
-                                          <input ref={productImageInputRef} type="file" className="hidden" accept="image/*" onChange={handleProductImageFileChange} />
+                                      <div>
+                                          <h4 className="text-white font-bold">المعلومات الأساسية</h4>
+                                          <p className="text-xs text-gray-500">اسم المنتج، القسم، والوصف العام</p>
                                       </div>
                                   </div>
-                              </div>
-
-                              {/* Product Video Upload */}
-                              <div className="md:col-span-2 border-t border-white/10 pt-4">
-                                  <label className="block text-xs font-bold text-gray-400 mb-2">
-                                      فيديو المنتج (اختياري - حتى 700 ميجابايت)
-                                  </label>
-                                  <div className="flex items-center gap-4">
-                                      <div className="w-20 h-20 bg-black rounded-xl border border-white/10 flex items-center justify-center overflow-hidden">
-                                          {videoPreviewUrl || newProduct.video_url ? (
-                                              <video 
-                                                  src={videoPreviewUrl || newProduct.video_url} 
-                                                  className="w-full h-full object-cover"
-                                                  controls={false}
-                                              />
-                                          ) : (
-                                              <Video className="w-8 h-8 text-gray-600" />
-                                          )}
+                                  
+                                  <div className="grid md:grid-cols-2 gap-6">
+                                      <div className="md:col-span-1">
+                                          <label className="block text-xs font-bold text-gray-400 mb-2">اسم المنتج</label>
+                                          <input type="text" value={newProduct.title} onChange={e => setNewProduct({...newProduct, title: e.target.value})} className="w-full p-3 bg-black border border-white/10 rounded-xl text-white focus:border-cyan-500 focus:outline-none" />
                                       </div>
-                                      <div className="space-y-2">
-                                          <div className="flex gap-2">
-                                              <button
-                                                  onClick={() => productVideoInputRef.current?.click()}
-                                                  className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-xs font-bold transition-colors"
-                                              >
-                                                  رفع فيديو
+                                      <div className="md:col-span-1">
+                                          <label className="block text-xs font-bold text-gray-400 mb-2">القسم</label>
+                                          <select value={newProduct.category_id} onChange={e => handleCategoryChange(e.target.value)} className="w-full p-3 bg-black border border-white/10 rounded-xl text-white focus:border-cyan-500 focus:outline-none">
+                                              <option value="">اختر القسم</option>
+                                              {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                          </select>
+                                      </div>
+                                      <div className="md:col-span-2">
+                                          <label className="block text-xs font-bold text-gray-400 mb-2">الوصف</label>
+                                          <textarea rows={3} value={newProduct.description} onChange={e => setNewProduct({...newProduct, description: e.target.value})} className="w-full p-3 bg-black border border-white/10 rounded-xl text-white focus:border-cyan-500 focus:outline-none" />
+                                      </div>
+                                      
+                                      {/* ميزات المنتج */}
+                                      <div className="md:col-span-2 space-y-4">
+                                          <div className="flex justify-between items-center">
+                                              <label className="block text-xs font-bold text-gray-400">مميزات المنتج (Features)</label>
+                                              <button onClick={addFeature} className="text-xs bg-cyan-600/20 text-cyan-400 hover:bg-cyan-600/30 px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors">
+                                                  <Plus className="w-3 h-3" /> إضافة ميزة
                                               </button>
                                           </div>
-                                          <input
-                                              ref={productVideoInputRef}
-                                              type="file"
-                                              className="hidden"
-                                              accept="video/*"
-                                              onChange={handleProductVideoFileChange}
-                                          />
-                                          {(videoPreviewUrl || newProduct.video_url) && (
-                                              <div className="text-[10px] text-gray-500 truncate max-w-[200px]">
-                                                  {videoUploadFile ? videoUploadFile.name : 'فيديو حالي'}
-                                              </div>
-                                          )}
+                                          <div className="grid md:grid-cols-2 gap-3">
+                                              {newProduct.features.map((feature, idx) => (
+                                                  <div key={idx} className="flex gap-2">
+                                                      <input type="text" value={feature} onChange={e => updateFeature(idx, e.target.value)} placeholder="مثال: تحديثات تلقائية" className="flex-1 p-2.5 bg-black border border-white/10 rounded-xl text-white text-sm focus:border-cyan-500 focus:outline-none" />
+                                                      <button onClick={() => removeFeature(idx)} className="p-2.5 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-xl transition-colors">
+                                                          <X className="w-4 h-4" />
+                                                      </button>
+                                                  </div>
+                                              ))}
+                                          </div>
+                                      </div>
+
+                                      <div className="md:col-span-2 flex gap-6 p-4 bg-black/40 rounded-xl border border-white/5">
+                                          <div className="flex items-center gap-3">
+                                              <ModernCheckbox checked={newProduct.is_popular || false} onChange={() => setNewProduct({...newProduct, is_popular: !newProduct.is_popular})} id="pop-check" />
+                                              <label htmlFor="pop-check" className="text-sm font-bold text-purple-400 cursor-pointer">منتج شائع (Popular)</label>
+                                          </div>
+                                          <div className="flex items-center gap-3">
+                                              <ModernCheckbox checked={newProduct.is_hidden || false} onChange={() => setNewProduct({...newProduct, is_hidden: !newProduct.is_hidden})} id="hide-check" />
+                                              <label htmlFor="hide-check" className="text-sm font-bold text-red-400 cursor-pointer">مخفي (Hidden)</label>
+                                          </div>
                                       </div>
                                   </div>
                               </div>
 
-                              <div className="md:col-span-2 border-t border-white/10 pt-4 flex gap-6">
-                                  <ModernCheckbox checked={newProduct.is_popular || false} onChange={() => setNewProduct({...newProduct, is_popular: !newProduct.is_popular})} id="pop-check" /> <label htmlFor="pop-check" className="text-sm font-bold text-purple-400 cursor-pointer">منتج شائع (Popular)</label>
-                                  <ModernCheckbox checked={newProduct.is_hidden || false} onChange={() => setNewProduct({...newProduct, is_hidden: !newProduct.is_hidden})} id="hide-check" /> <label htmlFor="hide-check" className="text-sm font-bold text-red-400 cursor-pointer">مخفي (Hidden)</label>
+                              {/* القسم 2: التسعير والضريبة */}
+                              <div className="bg-white/5 rounded-2xl border border-white/10 p-6 space-y-6">
+                                  <div className="flex items-center gap-3 border-b border-white/10 pb-4">
+                                      <div className="p-2 bg-green-500/10 rounded-lg">
+                                          <DollarSign className="w-5 h-5 text-green-400" />
+                                      </div>
+                                      <div>
+                                          <h4 className="text-white font-bold">التسعير والضريبة</h4>
+                                          <p className="text-xs text-gray-500">إدارة السعر والضرائب المضافة</p>
+                                      </div>
+                                  </div>
+                                  
+                                  <div className="grid md:grid-cols-3 gap-6">
+                                      <div>
+                                          <label className="block text-xs font-bold text-gray-400 mb-2">السعر الأساسي ($)</label>
+                                          <input type="number" value={newProduct.price} onChange={e => setNewProduct({...newProduct, price: Number(e.target.value)})} className="w-full p-3 bg-black border border-white/10 rounded-xl text-white focus:border-cyan-500 focus:outline-none" />
+                                      </div>
+                                      <div>
+                                          <label className="block text-xs font-bold text-gray-400 mb-2">نسبة الضريبة (%)</label>
+                                          <input type="number" value={newProduct.payment_gateway_tax || 0} onChange={e => setNewProduct({...newProduct, payment_gateway_tax: Number(e.target.value)})} className="w-full p-3 bg-black border border-white/10 rounded-xl text-white focus:border-cyan-500 focus:outline-none" placeholder="0" />
+                                      </div>
+                                      <div>
+                                          <label className="block text-xs font-bold text-gray-400 mb-2">السعر النهائي (تلقائي)</label>
+                                          <div className="w-full p-3 bg-cyan-500/10 border border-cyan-500/30 rounded-xl text-cyan-400 font-mono font-bold text-lg flex items-center justify-between">
+                                              <span>${(newProduct.price + (newProduct.price * (newProduct.payment_gateway_tax || 0) / 100)).toFixed(2)}</span>
+                                              <span className="text-[10px] text-gray-500 font-normal">تلقائي</span>
+                                          </div>
+                                      </div>
+                                  </div>
+                              </div>
+
+                              {/* القسم 3: إعدادات بوابة الدفع */}
+                              <div className="bg-yellow-500/5 rounded-2xl border border-yellow-500/10 p-6 space-y-6">
+                                  <div className="flex items-center gap-3 border-b border-yellow-500/10 pb-4">
+                                      <div className="p-2 bg-yellow-500/10 rounded-lg">
+                                          <ShieldAlert className="w-5 h-5 text-yellow-500" />
+                                      </div>
+                                      <div>
+                                          <h4 className="text-yellow-500 font-bold">إعدادات بوابة الدفع (تمويه)</h4>
+                                          <p className="text-xs text-yellow-500/60">معلومات وهمية تظهر في بوابات الدفع لحماية الحساب</p>
+                                      </div>
+                                  </div>
+                                  
+                                  <div className="grid md:grid-cols-2 gap-6">
+                                      <div>
+                                          <label className="block text-xs font-bold text-yellow-500/80 mb-2">الاسم المستعار (Masked Name)</label>
+                                          <input type="text" value={newProduct.masked_name || ''} onChange={e => setNewProduct({...newProduct, masked_name: e.target.value})} placeholder="مثال: Online Service Support" className="w-full p-3 bg-black border border-white/10 rounded-xl text-white focus:border-yellow-500 focus:outline-none text-sm" />
+                                      </div>
+                                      <div>
+                                          <label className="block text-xs font-bold text-yellow-500/80 mb-2">الدومين المستعار (Redirect URL)</label>
+                                          <input type="text" value={newProduct.masked_domain || ''} onChange={e => setNewProduct({...newProduct, masked_domain: e.target.value})} placeholder="مثال: payments.service.com" className="w-full p-3 bg-black border border-white/10 rounded-xl text-white focus:border-yellow-500 focus:outline-none text-sm" />
+                                      </div>
+                                  </div>
+                              </div>
+
+                              {/* القسم 4: إعدادات الدفع بالبطاقة والروابط */}
+                              <div className="bg-white/5 rounded-2xl border border-white/10 p-6 space-y-6">
+                                  <div className="flex items-center gap-3 border-b border-white/10 pb-4">
+                                      <div className="p-2 bg-purple-500/10 rounded-lg">
+                                          <CreditCard className="w-5 h-5 text-purple-400" />
+                                      </div>
+                                      <div>
+                                          <h4 className="text-white font-bold">إعدادات الدفع بالبطاقة والروابط</h4>
+                                          <p className="text-xs text-gray-500">خاص بطريقة الدفع عن طريق البطاقة فقط</p>
+                                      </div>
+                                  </div>
+                                  
+                                  <div className="space-y-4">
+                                      <div className="flex flex-wrap gap-4 mb-4">
+                                          <button onClick={() => setNewProduct({...newProduct, purchase_method: 'gateway', buy_link: '', purchase_image_id: null})} className={`flex-1 min-w-[140px] py-3 rounded-xl border font-bold transition-all flex items-center justify-center gap-2 ${newProduct.purchase_method === 'gateway' ? 'bg-green-600 border-green-600 text-white shadow-lg shadow-green-600/20' : 'border-white/10 text-gray-400 hover:bg-white/5'}`}>
+                                              <CreditCard className="w-4 h-4" /> بوابة الدفع
+                                          </button>
+                                          <button onClick={() => setNewProduct({...newProduct, purchase_method: 'external', purchase_image_id: null})} className={`flex-1 min-w-[140px] py-3 rounded-xl border font-bold transition-all flex items-center justify-center gap-2 ${newProduct.purchase_method === 'external' ? 'bg-cyan-600 border-cyan-600 text-white shadow-lg shadow-cyan-600/20' : 'border-white/10 text-gray-400 hover:bg-white/5'}`}>
+                                              <ExternalLink className="w-4 h-4" /> رابط خارجي
+                                          </button>
+                                          <button onClick={() => setNewProduct({...newProduct, purchase_method: 'qr', buy_link: ''})} className={`flex-1 min-w-[140px] py-3 rounded-xl border font-bold transition-all flex items-center justify-center gap-2 ${newProduct.purchase_method === 'qr' ? 'bg-purple-600 border-purple-600 text-white shadow-lg shadow-purple-600/20' : 'border-white/10 text-gray-400 hover:bg-white/5'}`}>
+                                              <QrCode className="w-4 h-4" /> صورة QR
+                                          </button>
+                                      </div>
+                                      
+                                      {newProduct.purchase_method === 'gateway' && (
+                                          <div className="p-4 bg-green-500/5 border border-green-500/20 rounded-xl flex items-center gap-4 animate-fade-in">
+                                              <div className="p-3 bg-green-500/10 rounded-full">
+                                                  <ShieldCheck className="w-6 h-6 text-green-400" />
+                                              </div>
+                                              <div>
+                                                  <p className="text-sm text-green-400 font-bold">بوابة الدفع نشطة</p>
+                                                  <p className="text-xs text-green-400/60">سيتم توجيه العميل تلقائياً إلى بوابة الدفع عند النقر على شراء.</p>
+                                              </div>
+                                          </div>
+                                      )}
+
+                                      {newProduct.purchase_method === 'external' && (
+                                          <div className="space-y-6 animate-fade-in">
+                                              <div>
+                                                  <label className="block text-xs font-bold text-gray-500 mb-2">الرابط الأساسي للشراء</label>
+                                                  <input type="url" value={newProduct.buy_link} onChange={e => setNewProduct({...newProduct, buy_link: e.target.value})} className="w-full p-3 bg-black border border-white/10 rounded-xl text-white focus:border-cyan-500 focus:outline-none" placeholder="https://..." />
+                                              </div>
+                                              
+                                              <div className="bg-black/30 p-4 rounded-xl border border-white/5 space-y-4">
+                                                  <div className="flex justify-between items-center">
+                                                      <label className="text-xs font-bold text-gray-400">روابط إضافية (اختياري)</label>
+                                                      <button onClick={addAlternativeLink} className="text-xs bg-cyan-600/20 text-cyan-400 hover:bg-cyan-600/30 px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors">
+                                                          <Plus className="w-3 h-3" /> إضافة رابط
+                                                      </button>
+                                                  </div>
+                                                  
+                                                  {newProduct.alternative_links && newProduct.alternative_links.length > 0 ? (
+                                                      <div className="space-y-3">
+                                                          {newProduct.alternative_links.map((link, idx) => (
+                                                              <div key={idx} className="flex gap-3 items-start bg-white/5 p-3 rounded-lg border border-white/5">
+                                                                  <div className="flex-1 grid grid-cols-2 gap-3">
+                                                                      <input type="text" placeholder="تسمية الرابط" value={link.label} onChange={(e) => updateAlternativeLink(idx, 'label', e.target.value)} className="w-full p-2 bg-black border border-white/10 rounded-lg text-white text-sm focus:border-cyan-500 focus:outline-none" />
+                                                                      <input type="url" placeholder="https://..." value={link.url} onChange={(e) => updateAlternativeLink(idx, 'url', e.target.value)} className="w-full p-2 bg-black border border-white/10 rounded-lg text-white text-sm focus:border-cyan-500 focus:outline-none" />
+                                                                  </div>
+                                                                  <button onClick={() => removeAlternativeLink(idx)} className="p-2.5 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg transition-colors">
+                                                                      <Trash2 className="w-4 h-4" />
+                                                                  </button>
+                                                              </div>
+                                                          ))}
+                                                      </div>
+                                                  ) : (
+                                                      <p className="text-xs text-gray-600 text-center py-4 border border-dashed border-white/10 rounded-lg">لا توجد روابط إضافية حالياً</p>
+                                                  )}
+                                              </div>
+                                          </div>
+                                      )}
+
+                                      {newProduct.purchase_method === 'qr' && (
+                                          <div className="space-y-2 animate-fade-in">
+                                              <label className="block text-xs font-bold text-gray-400 mb-2">اختر صورة الدفع المعدة مسبقاً</label>
+                                              <select value={newProduct.purchase_image_id || ''} onChange={e => setNewProduct({...newProduct, purchase_image_id: e.target.value})} className="w-full p-3 bg-black border border-white/10 rounded-xl text-white focus:border-cyan-500 focus:outline-none">
+                                                  <option value="">اختر صورة الدفع</option>
+                                                  {purchaseImages.map(img => <option key={img.id} value={img.id}>{img.name}</option>)}
+                                              </select>
+                                          </div>
+                                      )}
+                                  </div>
+                              </div>
+
+                              {/* القسم 5: الوسائط */}
+                              <div className="bg-white/5 rounded-2xl border border-white/10 p-6 space-y-6">
+                                  <div className="flex items-center gap-3 border-b border-white/10 pb-4">
+                                      <div className="p-2 bg-pink-500/10 rounded-lg">
+                                          <Image className="w-5 h-5 text-pink-400" />
+                                      </div>
+                                      <div>
+                                          <h4 className="text-white font-bold">الوسائط (الصور والفيديو)</h4>
+                                          <p className="text-xs text-gray-500">إدارة الملفات المرئية للمنتج</p>
+                                      </div>
+                                  </div>
+                                  
+                                  <div className="grid md:grid-cols-2 gap-8">
+                                      <div className="space-y-4">
+                                          <label className="block text-xs font-bold text-gray-400">صورة المنتج</label>
+                                          <div className="flex items-center gap-4 p-4 bg-black/40 rounded-2xl border border-white/5">
+                                              <div className="w-24 h-24 bg-black rounded-xl border border-white/10 flex items-center justify-center overflow-hidden flex-shrink-0">
+                                                  {imagePreviewUrl || newProduct.image ? <img src={imagePreviewUrl || newProduct.image} className="w-full h-full object-cover" /> : <Package className="w-10 h-10 text-gray-700" />}
+                                              </div>
+                                              <div className="flex flex-col gap-2">
+                                                  <button onClick={() => productImageInputRef.current?.click()} className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-xs font-bold transition-colors">رفع صورة جديدة</button>
+                                                  <button onClick={() => setShowImageSelector(true)} className="px-4 py-2 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 rounded-lg text-xs font-bold transition-colors">من المكتبة</button>
+                                              </div>
+                                              <input ref={productImageInputRef} type="file" className="hidden" accept="image/*" onChange={handleProductImageFileChange} />
+                                          </div>
+                                      </div>
+                                      
+                                      <div className="space-y-4">
+                                          <label className="block text-xs font-bold text-gray-400">فيديو المنتج (اختياري)</label>
+                                          <div className="flex items-center gap-4 p-4 bg-black/40 rounded-2xl border border-white/5">
+                                              <div className="w-24 h-24 bg-black rounded-xl border border-white/10 flex items-center justify-center overflow-hidden flex-shrink-0">
+                                                  {videoPreviewUrl || newProduct.video_url ? (
+                                                      <video src={videoPreviewUrl || newProduct.video_url} className="w-full h-full object-cover" />
+                                                  ) : (
+                                                      <Video className="w-10 h-10 text-gray-700" />
+                                                  )}
+                                              </div>
+                                              <div className="flex flex-col gap-2">
+                                                  <button onClick={() => productVideoInputRef.current?.click()} className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-xs font-bold transition-colors">رفع فيديو</button>
+                                                  {(videoPreviewUrl || newProduct.video_url) && (
+                                                      <span className="text-[10px] text-gray-500 truncate max-w-[150px]">{videoUploadFile ? videoUploadFile.name : 'فيديو حالي'}</span>
+                                                  )}
+                                              </div>
+                                              <input ref={productVideoInputRef} type="file" className="hidden" accept="video/*" onChange={handleProductVideoFileChange} />
+                                          </div>
+                                      </div>
+                                  </div>
                               </div>
                           </div>
                           <div className="mt-8 flex justify-end gap-4">
@@ -3271,7 +3711,7 @@ ${intent.phone_number ? `${intent.phone_number}\n` : ''}${intent.country}
         </div> 
       )}
 
-      {invoiceModalIntent && ( <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[60] p-4"><div className="bg-slate-900 rounded-2xl border border-white/10 w-full max-w-6xl h-[90vh] flex flex-col overflow-hidden"><div className="p-4 border-b border-white/10 flex justify-between items-center"><h3 className="text-xl font-bold text-white">إرسال الفاتورة</h3><button onClick={() => setInvoiceModalIntent(null)} className="text-gray-400 hover:text-white"><X className="w-6 h-6" /></button></div><div className="flex-1 overflow-y-auto p-6 grid md:grid-cols-2 gap-8"><div className="space-y-6"><div>
+      {invoiceModalIntent && ( <div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center z-[60] p-2 md:p-4"><div className="bg-slate-900 rounded-3xl border border-white/10 w-full max-w-[1600px] h-[95vh] flex flex-col overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.5)]"><div className="p-5 border-b border-white/10 flex justify-between items-center bg-slate-900/50 backdrop-blur-xl"><h3 className="text-2xl font-bold text-white flex items-center gap-3"><FileText className="text-cyan-400" /> إرسال الفاتورة</h3><button onClick={() => setInvoiceModalIntent(null)} className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-all"><X className="w-7 h-7" /></button></div><div className="flex-1 overflow-hidden grid lg:grid-cols-[480px_1fr] h-full"><div className="overflow-y-auto p-8 border-r border-white/5 space-y-8 bg-slate-900/30"><div>
         <div className="flex justify-between items-center border-b border-white/10 pb-2 mb-2">
             <h4 className="text-cyan-400 font-bold">تفاصيل العميل</h4>
         </div>
@@ -3378,7 +3818,29 @@ ${intent.phone_number ? `${intent.phone_number}\n` : ''}${intent.country}
                 </div>
             </div>
         )}
-        </div><div className="flex flex-wrap gap-2 pt-4"><button onClick={handleCopyInvoiceText} className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg text-sm">نسخ النص</button><button onClick={handleCopyWhatsappInvoice} className="px-4 py-2 bg-green-600/20 hover:bg-green-600/30 text-green-400 border border-green-600/50 rounded-lg text-sm font-bold flex items-center gap-2"><Copy className="w-4 h-4" /> نسخ للواتساب</button><button onClick={handleDownloadInvoiceImage} className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm">تحميل صورة</button><button onClick={handleSendGmail} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm">Gmail</button><button onClick={handleSendWhatsapp} className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm">WhatsApp</button><button onClick={() => setShowPrintOptions(true)} className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg text-sm">طباعة</button></div></div><div className="bg-black rounded-xl border border-white/10 overflow-hidden h-full"><div className="p-2 border-b border-white/10 flex gap-2 justify-end bg-slate-800">{Object.entries(INVOICE_THEMES).map(([k, t]) => <button key={k} onClick={() => setSelectedInvoiceTheme(k)} className={`w-4 h-4 rounded-full border ${selectedInvoiceTheme === k ? 'border-white scale-125' : 'border-transparent'}`} style={{backgroundColor: t.backgroundColor}} title={t.name} />)}</div><iframe ref={iframeRef} srcDoc={generateInvoiceHTML(invoiceModalIntent, productKeyForInvoice || '')} className="w-full h-full bg-white" title="Preview" /></div></div></div></div> )}
+        </div><div className="flex flex-wrap gap-2 pt-4"><button onClick={handleCopyInvoiceText} className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg text-sm">نسخ النص</button><button onClick={handleCopyWhatsappInvoice} className="px-4 py-2 bg-green-600/20 hover:bg-green-600/30 text-green-400 border border-green-600/50 rounded-lg text-sm font-bold flex items-center gap-2"><Copy className="w-4 h-4" /> نسخ للواتساب</button><button onClick={handleDownloadInvoiceImage} className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm">تحميل صورة</button><button onClick={() => handleSendBrevoEmail(invoiceModalIntent, productKeyForInvoice || '')} disabled={sendingBrevo === invoiceModalIntent.id} className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-sm font-bold flex items-center gap-2">
+    {sendingBrevo === invoiceModalIntent.id ? (
+        <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+    ) : (
+        <Mail className="w-4 h-4" />
+    )}
+    إرسال Brevo
+</button>
+<button onClick={handleSendGmail} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm">Gmail</button><button onClick={handleSendWhatsapp} className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm">WhatsApp</button><button onClick={() => setShowPrintOptions(true)} className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg text-sm">طباعة</button></div></div><div className="bg-slate-950 h-full relative group flex flex-col">
+    <div className="absolute top-6 left-6 z-10">
+        <div className="px-4 py-2 bg-black/60 backdrop-blur-md rounded-full text-xs text-cyan-400 border border-cyan-500/30 flex items-center gap-2 shadow-lg">
+            <div className="w-2 h-2 bg-cyan-500 rounded-full animate-pulse"></div>
+            Live Preview Mode
+        </div>
+    </div>
+    <iframe 
+        ref={iframeRef} 
+        srcDoc={generateInvoiceHTML(invoiceModalIntent, productKeyForInvoice || '')} 
+        className="w-full h-full border-0 bg-white shadow-2xl origin-center transition-transform duration-500" 
+        style={{ transform: 'scale(0.98)' }}
+        title="Preview" 
+    />
+</div></div></div></div> )}
       {showPrintOptions && ( <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[70] p-4"><div className="bg-slate-900 rounded-2xl p-6 border border-white/10 max-w-sm w-full"><h3 className="text-lg font-bold text-white mb-4">خيارات الطباعة</h3><div className="space-y-3"><button onClick={handleInternalPrint} className="w-full py-3 bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl font-bold">طباعة مباشرة</button><button onClick={handleExternalPrint} className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold">فتح في نافذة جديدة</button><button onClick={() => setShowPrintOptions(false)} className="w-full py-3 bg-black hover:bg-white/10 text-white rounded-xl font-bold">إلغاء</button></div></div></div> )}
       
       {/* User History Modal */}

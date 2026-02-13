@@ -26,14 +26,8 @@ const Header = () => {
   }, [clickCount]);
 
   const handleLogoClick = (e: React.MouseEvent) => {
-    // Secret admin access: Click logo 7 times
-    const newCount = clickCount + 1;
-    if (newCount === 7) {
-      navigate('/admin');
-      setClickCount(0);
-    } else {
-      setClickCount(newCount);
-    }
+    // Hidden admin access disabled as requested
+    return;
   };
 
   return (

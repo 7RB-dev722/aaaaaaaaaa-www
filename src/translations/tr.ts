@@ -82,14 +82,32 @@ export const tr = {
     phoneRequired: 'Telefon numarası gereklidir',
     phoneInvalid: 'Geçersiz telefon numarası',
     countryRequired: 'Lütfen bir ülke seçin',
+    usernameRequired: 'Kullanıcı adı gereklidir',
+    notVerifiedTitle: 'Kullanıcı Adı Doğrulanmadı',
+    notVerifiedMessage: 'Kullanıcı adınız doğrulanmış listemizde bulunamadı. Hesabınızı doğrulamak için lütfen WhatsApp üzerinden bizimle iletişime geçin.',
+    contactWhatsApp: 'WhatsApp üzerinden iletişime geç',
+    cheatloopUsername: 'Cheatloop Kullanıcı Adı',
+    sinkiUsername: 'Sinki Kullanıcı Adı',
+    forgotUsername: 'Kullanıcı adımı unuttum?',
+    newUser: 'Yeni kullanıcı?',
+    forgotUsernameMsg: 'Merhaba, şu ürün için kullanıcı adımı unuttum: ',
+    newUserMsg: 'Merhaba, yeni bir kullanıcıyım ve şu ürün hakkında bilgi almak istiyorum: ',
 
     // Modal
     modalTitle: 'Ödemeyi Onayla',
     modalSubmitButton: 'Detayları Gönder',
     formError: 'Lütfen tüm zorunlu alanları doldurun.',
     anydeskLabel: 'AnyDesk ID (İsteğe bağlı)',
+    anydeskPlaceholder: '123 456 789',
     deliveryTitle: 'Teslimat',
     deliverySubtitle: 'Ödemeden sonra aşağıya tıklayın',
     instructionsTitle: 'Talimatlar',
     errorLoadingImage: 'Ödeme görseli yüklenemedi.',
+
+    // Policy Pages
+    termsTitle: 'Hizmet Şartları',
+    refundTitle: 'İade Politikası',
+    back: 'Geri',
+    termsPlaceholder: 'Hizmet Şartları içeriği şu anda güncellenmektedir. Lütfen yakında tekrar kontrol edin.',
+    refundPlaceholder: 'İade Politikası içeriği şu anda güncellenmektedir. Lütfen yakında tekrar kontrol edin.',
 };

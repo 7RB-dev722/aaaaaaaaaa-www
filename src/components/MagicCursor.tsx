@@ -1,111 +1,170 @@
 import React, { useEffect, useRef, useState } from 'react';
 
+interface Point {
+  x: number;
+  y: number;
+  age: number;
+}
+
 const MagicCursor = () => {
-  const cursorRef = useRef<HTMLDivElement>(null);
-  const followerRef = useRef<HTMLDivElement>(null);
-  
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const cursorShapeRef = useRef<HTMLDivElement>(null);
+  const points = useRef<Point[]>([]);
+  const mousePos = useRef({ x: 0, y: 0 });
   const [isPointer, setIsPointer] = useState(false);
   const [isClicking, setIsClicking] = useState(false);
-
-  // Use refs for position to avoid re-renders on every mousemove
-  const mousePos = useRef({ x: 0, y: 0 });
-  const followerPos = useRef({ x: 0, y: 0 });
+  
+  // إعدادات قابلة للتخصيص
+  const config = {
+    trailColorStart: '#00f2ff', // أزرق سيايان أكثر سطوعاً
+    trailColorEnd: '#0066ff',   // أزرق كهربائي
+    lineWidth: 4,               // زيادة سماكة الخط قليلاً
+    maxAge: 50,                 // زيادة مدة بقاء الأثر
+    glowAmount: 25,             // زيادة التوهج بشكل ملحوظ
+  };
 
   useEffect(() => {
-    const onMouseMove = (e: MouseEvent) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let animationFrameId: number;
+
+    const handleResize = () => {
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = window.innerWidth * dpr;
+      canvas.height = window.innerHeight * dpr;
+      canvas.style.width = `${window.innerWidth}px`;
+      canvas.style.height = `${window.innerHeight}px`;
+      ctx.scale(dpr, dpr);
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
       mousePos.current = { x: e.clientX, y: e.clientY };
       
-      // Update main cursor immediately - Instant response
-      if (cursorRef.current) {
-        cursorRef.current.style.transform = `translate3d(${e.clientX}px, ${e.clientY}px, 0)`;
+      // تحديث موقع شكل المؤشر المخصص
+      if (cursorShapeRef.current) {
+        cursorShapeRef.current.style.transform = `translate3d(${e.clientX}px, ${e.clientY}px, 0)`;
       }
 
-      // Check for pointer cursor
+      // إضافة نقطة للأثر (تبدأ من نهاية المؤشر وليس رأسه)
+      const offset = isPointer ? 16 : 13; // إزاحة طفيفة لتناسب حجم المؤشر عند التحويم
+      points.current.push({
+        x: e.clientX + offset,
+        y: e.clientY + offset,
+        age: 0
+      });
+
+      // التحقق من نوع المؤشر (Hover)
       const target = e.target as HTMLElement;
-      // Check if hovering over clickable elements
       const isClickable = 
         window.getComputedStyle(target).cursor === 'pointer' || 
         target.tagName === 'A' || 
         target.tagName === 'BUTTON' || 
         target.closest('a') !== null || 
-        target.closest('button') !== null ||
-        target.closest('[role="button"]') !== null;
-        
+        target.closest('button') !== null;
       setIsPointer(isClickable);
     };
 
-    const onMouseDown = () => setIsClicking(true);
-    const onMouseUp = () => setIsClicking(false);
+    const handleMouseDown = () => setIsClicking(true);
+    const handleMouseUp = () => setIsClicking(false);
 
-    window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('mousedown', onMouseDown);
-    window.addEventListener('mouseup', onMouseUp);
-
-    // Animation loop for smooth follower
-    let animationFrameId: number;
-    
     const animate = () => {
-      // Linear interpolation (Lerp) for smooth trailing
-      const lerp = (start: number, end: number, factor: number) => {
-        return start + (end - start) * factor;
-      };
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Smooth follow speed
-      followerPos.current.x = lerp(followerPos.current.x, mousePos.current.x, 0.15);
-      followerPos.current.y = lerp(followerPos.current.y, mousePos.current.y, 0.15);
+      if (points.current.length > 1) {
+        for (let i = 0; i < points.current.length - 1; i++) {
+          const p1 = points.current[i];
+          const p2 = points.current[i + 1];
+          
+          p1.age++;
+          const opacity = 1 - p1.age / config.maxAge;
+          
+          if (opacity > 0) {
+            const gradient = ctx.createLinearGradient(p1.x, p1.y, p2.x, p2.y);
+            gradient.addColorStop(0, `${config.trailColorStart}${Math.floor(opacity * 255).toString(16).padStart(2, '0')}`);
+            gradient.addColorStop(1, `${config.trailColorEnd}00`);
 
-      if (followerRef.current) {
-        followerRef.current.style.transform = `translate3d(${followerPos.current.x}px, ${followerPos.current.y}px, 0)`;
+            ctx.strokeStyle = gradient;
+            ctx.lineWidth = config.lineWidth * opacity;
+            ctx.shadowBlur = config.glowAmount * opacity;
+            ctx.shadowColor = config.trailColorStart;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+
+            ctx.beginPath();
+            ctx.moveTo(p1.x, p1.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.stroke();
+          }
+        }
+        points.current = points.current.filter(p => p.age < config.maxAge);
       }
 
       animationFrameId = requestAnimationFrame(animate);
     };
 
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mousedown', handleMouseDown);
+    window.addEventListener('mouseup', handleMouseUp);
+    
+    handleResize();
     animate();
 
     return () => {
-      window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('mousedown', onMouseDown);
-      window.removeEventListener('mouseup', onMouseUp);
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mousedown', handleMouseDown);
+      window.removeEventListener('mouseup', handleMouseUp);
       cancelAnimationFrame(animationFrameId);
     };
   }, []);
 
   return (
     <>
-      {/* Main Cursor Point */}
-      <div 
-        ref={cursorRef}
-        className={`fixed top-0 left-0 pointer-events-none z-[9999] transition-transform duration-75 ease-out mix-blend-difference`}
-        style={{ marginTop: '-4px', marginLeft: '-4px' }}
-      >
-        <div className={`
-          w-2 h-2 bg-white rounded-full shadow-[0_0_10px_rgba(255,255,255,1)]
-          transition-all duration-200
-          ${isClicking ? 'scale-50' : 'scale-100'}
-          ${isPointer ? 'bg-cyan-400 shadow-[0_0_15px_rgba(34,211,238,1)]' : ''}
-        `}></div>
-      </div>
+      {/* 1. الأثر السحري (Canvas Trail) */}
+      <canvas
+        ref={canvasRef}
+        className="fixed top-0 left-0 pointer-events-none z-[9998] mix-blend-screen"
+      />
 
-      {/* Smooth Follower Ring */}
-      <div 
-        ref={followerRef}
-        className={`fixed top-0 left-0 pointer-events-none z-[9998] flex items-center justify-center transition-all duration-300 ease-out`}
-        style={{ 
-          marginTop: isPointer ? '-24px' : '-12px', 
-          marginLeft: isPointer ? '-24px' : '-12px',
-          width: isPointer ? '48px' : '24px',
-          height: isPointer ? '48px' : '24px',
-        }}
+      {/* 2. شكل المؤشر الطبيعي (Simple Triangle) */}
+      <div
+        ref={cursorShapeRef}
+        className="fixed top-0 left-0 pointer-events-none z-[9999] flex items-center justify-center mix-blend-difference"
+        style={{ marginTop: '0px', marginLeft: '0px', imageRendering: 'crisp-edges' }}
       >
         <div className={`
-          absolute inset-0 rounded-full border transition-all duration-300
-          ${isPointer 
-            ? 'border-cyan-400/50 bg-cyan-400/10 scale-100' 
-            : 'border-white/30 scale-100'
-          }
-          ${isClicking ? 'scale-75 border-cyan-400' : ''}
-        `}></div>
+          relative transition-all duration-300 ease-out
+          ${isPointer ? 'scale-125' : 'scale-100'}
+          ${isClicking ? 'scale-75' : ''}
+        `}>
+          {/* رأس المثلث (Cursor Tip) */}
+          <svg 
+            width="20" 
+            height="20" 
+            viewBox="0 0 20 20" 
+            fill="none" 
+            xmlns="http://www.w3.org/2000/svg"
+            style={{ transform: 'translate(-1px, -1px) rotate(6deg)', filter: 'drop-shadow(0 0 1px rgba(255,255,255,0.5))' }}
+          >
+            <path 
+              d="M2 2L8 18L11 11L18 8L2 2Z" 
+              fill="white" 
+              stroke="white" 
+              strokeWidth="1.2" 
+              strokeLinejoin="miter"
+            />
+          </svg>
+
+          {/* تأثير توهج خفيف جداً خلف المثلث */}
+          {isPointer && (
+            <div className="absolute inset-0 bg-cyan-400/20 blur-md rounded-full -z-10 animate-pulse"></div>
+          )}
+        </div>
       </div>
     </>
   );

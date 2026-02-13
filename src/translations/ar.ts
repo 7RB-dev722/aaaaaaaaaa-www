@@ -82,14 +82,32 @@ export const ar = {
     phoneRequired: 'رقم الهاتف مطلوب',
     phoneInvalid: 'رقم هاتف غير صالح',
     countryRequired: 'يرجى اختيار الدولة',
+    usernameRequired: 'اسم المستخدم مطلوب',
+    notVerifiedTitle: 'اسم المستخدم غير موثق',
+    notVerifiedMessage: 'اسم المستخدم الخاص بك غير موجود في قائمة الموثقين لدينا. يرجى التواصل معنا عبر واتساب لتوثيق حسابك.',
+    contactWhatsApp: 'تواصل عبر واتساب',
+    cheatloopUsername: 'اسم مستخدم Cheatloop',
+    sinkiUsername: 'اسم مستخدم Sinki',
+    forgotUsername: 'نسيت اسم المستخدم؟',
+    newUser: 'مستخدم جديد؟',
+    forgotUsernameMsg: 'مرحباً، لقد نسيت اسم المستخدم الخاص بي لمنتج: ',
+    newUserMsg: 'مرحباً، أنا مستخدم جديد وأريد الاستفسار عن منتج: ',
 
     // Modal
     modalTitle: 'تأكيد الدفع',
     modalSubmitButton: 'إرسال التفاصيل',
     formError: 'يرجى ملء جميع الحقول المطلوبة.',
     anydeskLabel: 'AnyDesk ID (اختياري)',
+    anydeskPlaceholder: '123 456 789',
     deliveryTitle: 'الاستلام',
     deliverySubtitle: 'اضغط أدناه بعد إتمام الدفع',
     instructionsTitle: 'التعليمات',
     errorLoadingImage: 'فشل تحميل صورة الدفع.',
+
+    // Policy Pages
+    termsTitle: 'شروط الخدمة',
+    refundTitle: 'سياسة الاسترجاع',
+    back: 'رجوع',
+    termsPlaceholder: 'محتوى شروط الخدمة قيد التحديث حالياً. يرجى العودة لاحقاً.',
+    refundPlaceholder: 'محتوى سياسة الاسترجاع قيد التحديث حالياً. يرجى العودة لاحقاً.',
 };

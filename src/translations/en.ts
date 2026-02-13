@@ -82,16 +82,34 @@ export const en = {
     phoneRequired: 'Phone number is required',
     phoneInvalid: 'Invalid phone number',
     countryRequired: 'Please select a country',
+    usernameRequired: 'Username is required',
+    notVerifiedTitle: 'Username Not Verified',
+    notVerifiedMessage: 'Your username is not in our verified list. Please contact us on WhatsApp to verify your account.',
+    contactWhatsApp: 'Contact on WhatsApp',
+    cheatloopUsername: 'Cheatloop Username',
+    sinkiUsername: 'Sinki Username',
+    forgotUsername: 'Forgot Username?',
+    newUser: 'New User?',
+    forgotUsernameMsg: 'Hello, I forgot my username for product: ',
+    newUserMsg: 'Hello, I am a new user and I want to inquire about product: ',
     
     // Modal
     modalTitle: 'Confirm Payment',
     modalSubmitButton: 'Submit Details',
     formError: 'Please fill in all required fields.',
     anydeskLabel: 'AnyDesk ID (Optional)',
+    anydeskPlaceholder: '123 456 789',
     deliveryTitle: 'Delivery',
     deliverySubtitle: 'Click below after payment',
     instructionsTitle: 'Instructions',
     errorLoadingImage: 'Failed to load payment image.',
+
+    // Policy Pages
+    termsTitle: 'Terms of Service',
+    refundTitle: 'Refund Policy',
+    back: 'Back',
+    termsPlaceholder: 'Terms of Service content is currently being updated. Please check back soon.',
+    refundPlaceholder: 'Refund Policy content is currently being updated. Please check back soon.',
 };
 
 export type Translations = typeof en;

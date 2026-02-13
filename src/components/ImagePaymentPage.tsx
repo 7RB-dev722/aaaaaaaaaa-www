@@ -144,16 +144,21 @@ const ImagePaymentPage: React.FC = () => {
         }
     };
 
-    const LangButton = ({ targetLang, children }: { targetLang: Lang, children: React.ReactNode }) => (
+    const getFlagUrl = (isoCode: string) => `https://flagcdn.com/w40/${isoCode.toLowerCase()}.png`;
+
+    const LangButton = ({ targetLang, iso, children }: { targetLang: Lang, iso: string, children: React.ReactNode }) => (
         <button
             onClick={() => setLang(targetLang)}
             className={cn(
-                "px-3 py-1.5 text-xs font-bold rounded-lg transition-all border",
+                "px-3 py-1.5 text-[10px] font-bold rounded-lg transition-all border flex items-center gap-1.5",
                 lang === targetLang
                     ? "bg-cyan-500/20 text-cyan-400 border-cyan-500/50 shadow-[0_0_10px_rgba(6,182,212,0.2)]"
                     : "bg-transparent border-transparent text-gray-500 hover:text-gray-300 hover:bg-white/5"
             )}
         >
+            <div className="w-4 h-3 overflow-hidden rounded-sm border border-white/10 flex-shrink-0">
+                <img src={getFlagUrl(iso)} alt="" className="w-full h-full object-cover" />
+            </div>
             {children}
         </button>
     );
@@ -208,9 +213,9 @@ const ImagePaymentPage: React.FC = () => {
                     </Link>
                     
                     <div className="flex gap-1 bg-[#0a0a0c]/80 p-1.5 rounded-xl backdrop-blur-md border border-white/10">
-                        <LangButton targetLang="en">EN</LangButton>
-                        <LangButton targetLang="ar">AR</LangButton>
-                        <LangButton targetLang="tr">TR</LangButton>
+                        <LangButton targetLang="en" iso="us">EN</LangButton>
+                        <LangButton targetLang="ar" iso="ae">AR</LangButton>
+                        <LangButton targetLang="tr" iso="tr">TR</LangButton>
                     </div>
                 </div>
 

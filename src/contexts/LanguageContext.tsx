@@ -2,7 +2,7 @@ import React, { createContext, useState, useContext, ReactNode, useMemo } from '
 import { translations } from '../translations';
 import { Translations } from '../translations/en';
 
-type Lang = 'en' | 'ar' | 'tr';
+export type Lang = 'en' | 'ar' | 'tr' | 'ru';
 
 interface LanguageContextType {
   lang: Lang;

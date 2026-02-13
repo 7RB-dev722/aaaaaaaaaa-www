@@ -1,0 +1,50 @@
+export const ru = {
+    // General
+    loading: 'Загрузка...',
+    errorTitle: 'Ошибка',
+    error: 'Произошла ошибка. Пожалуйста, попробуйте еще раз.',
+    goBack: 'Назад',
+    backToHome: 'На главную',
+    next: 'Далее',
+    back: 'Назад',
+    
+    // Payment & Products
+    proceedToPaymentLink: 'Перейти к оплате',
+    redirectMessage: 'Вы будете перенаправлены на внешний сайт для завершения покупки.',
+    backupLink1: 'Резервная ссылка 1',
+    backupLink2: 'Резервная ссылка 2',
+    backupLink3: 'Резервная ссылка 3',
+    backupLink4: 'Резервная ссылка 4',
+    backupLinkNote: "Примечание: Если первая ссылка не работает, попробуйте оплатить по резервным ссылкам.",
+    payFor: 'Оплатить за',
+    via: 'Через',
+    paymentDetails: 'Детали платежа',
+    network: 'Сеть',
+    binanceId: 'Binance ID / Pay ID',
+    walletAddress: 'Адрес кошелька',
+    accountHolder: 'Владелец счета',
+    accountNumber: 'Номер счета',
+    iban: 'IBAN',
+    amountToPay: 'Сумма к оплате',
+    transferNotice: 'Пожалуйста, переведите точную сумму, указанную выше.',
+    iHavePaidButton: 'Я оплатил',
+    
+    // Pre-Purchase
+    prePurchaseTitle: 'Настройка заказа',
+    prePurchaseSubtitle: 'Выполните следующие шаги, чтобы получить ваш продукт.',
+    step1Title: 'Личные данные',
+    step2Title: 'Способ оплаты',
+    countryLabel: 'Страна',
+    countryPlaceholder: 'Выберите вашу страну',
+    emailLabel: 'Электронная почта',
+    emailPlaceholder: 'your@email.com',
+    phoneLabel: 'Номер телефона',
+    phonePlaceholder: '123456789',
+    
+    // Policy Pages
+    termsTitle: 'Условия использования',
+    refundTitle: 'Политика возврата',
+    back: 'Назад',
+    termsPlaceholder: 'Содержание Условий использования в настоящее время обновляется. Пожалуйста, зайдите позже.',
+    refundPlaceholder: 'Содержание Политики возврата в настоящее время обновляется. Пожалуйста, зайдите позже.',
+};
